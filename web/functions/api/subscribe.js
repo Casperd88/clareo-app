@@ -2,7 +2,7 @@
  * POST /api/subscribe — waitlist / newsletter signup (Cloudflare Pages Function)
  *
  * Bindings (wrangler / Pages project settings):
- * - WAITLIST: KV namespace — one key per normalized email: `signup:{email}`
+ * - WAITLIST: KV namespace (optional but recommended) — one key per normalized email: `signup:{email}`
  *
  * Optional env:
  * - ALLOWED_ORIGINS — comma-separated origins for CORS (e.g. https://tryclareo.com,https://www.tryclareo.com).
@@ -63,22 +63,24 @@ export async function onRequestPost(context) {
       return json({ error: "Invalid email" }, 400, request, env);
     }
 
-    if (!env.WAITLIST) {
-      return json({ error: "Waitlist storage is not configured" }, 503, request, env);
-    }
-
-    const key = `signup:${email}`;
-    const existing = await env.WAITLIST.get(key);
-    if (existing) {
-      return json({ ok: true }, 200, request, env);
-    }
-
     const record = {
       email,
       createdAt: new Date().toISOString(),
       source: "waitlist",
     };
-    await env.WAITLIST.put(key, JSON.stringify(record));
+
+    if (env.WAITLIST) {
+      const key = `signup:${email}`;
+      const existing = await env.WAITLIST.get(key);
+      if (existing) {
+        return json({ ok: true }, 200, request, env);
+      }
+      await env.WAITLIST.put(key, JSON.stringify(record));
+    } else {
+      // Keep signup flow working even if KV binding is missing.
+      // We still fan out to webhook (if configured) and return success.
+      console.warn("WAITLIST KV binding missing; skipping persistent storage");
+    }
 
     const webhook = env.WEBHOOK_URL;
     if (webhook) {
