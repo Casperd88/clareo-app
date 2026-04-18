@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String?
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts      Account[]
+  library       LibraryItem[]
+  playbackState PlaybackState[]
+  bookmarks     Bookmark[]
+  preferences   UserPreferences?
+
+  @@map("users")
+}
+
+model UserPreferences {
+  id                   String   @id @default(uuid())
+  displayName          String?
+  genres               String[] @default([])
+  listeningHabits      String[] @default([])
+  monthlyGoal          Int      @default(2)
+  preferredSpeed       Float    @default(1.0)
+  onboardingCompleted  Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  provider          String
+  providerAccountId String
+  refreshToken      String?
+  accessToken       String?
+  expiresAt         Int?
+  tokenType         String?
+  scope             String?
+  idToken           String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Author {
+  id        String   @id @default(uuid())
+  name      String
+  bio       String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audiobooks Audiobook[]
+
+  @@map("authors")
+}
+
+model Narrator {
+  id        String   @id @default(uuid())
+  name      String
+  bio       String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audiobooks AudiobookNarrator[]
+
+  @@map("narrators")
+}
+
+model Genre {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audiobooks AudiobookGenre[]
+
+  @@map("genres")
+}
+
+model Audiobook {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  coverImageKey String?
+  coverVideoKey String?
+  totalDuration Float    @default(0)
+  releaseDate  DateTime?
+  language     String   @default("en")
+  publisher    String?
+  isbn         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  authorId String
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  chapters      Chapter[]
+  narrators     AudiobookNarrator[]
+  genres        AudiobookGenre[]
+  libraryItems  LibraryItem[]
+  playbackState PlaybackState[]
+  bookmarks     Bookmark[]
+
+  @@map("audiobooks")
+}
+
+model AudiobookNarrator {
+  audiobookId String
+  narratorId  String
+
+  audiobook Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+  narrator  Narrator  @relation(fields: [narratorId], references: [id], onDelete: Cascade)
+
+  @@id([audiobookId, narratorId])
+  @@map("audiobook_narrators")
+}
+
+model AudiobookGenre {
+  audiobookId String
+  genreId     String
+
+  audiobook Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+  genre     Genre     @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([audiobookId, genreId])
+  @@map("audiobook_genres")
+}
+
+model Chapter {
+  id           String   @id @default(uuid())
+  title        String
+  chapterNumber Int
+  startTime    Float    @default(0)
+  endTime      Float    @default(0)
+  duration     Float    @default(0)
+  audioFileKey String?
+  guideline    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  audiobookId String
+  audiobook   Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+
+  bookmarks Bookmark[]
+  segments  Segment[]
+
+  @@unique([audiobookId, chapterNumber])
+  @@map("chapters")
+}
+
+model Segment {
+  id        String   @id @default(uuid())
+  startTime Float
+  endTime   Float
+  text      String
+  words     Json?
+  createdAt DateTime @default(now())
+
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([chapterId, startTime])
+  @@map("segments")
+}
+
+model LibraryItem {
+  id        String   @id @default(uuid())
+  addedAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId      String
+  audiobookId String
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audiobook Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, audiobookId])
+  @@map("library_items")
+}
+
+model PlaybackState {
+  id               String   @id @default(uuid())
+  currentPosition  Int      @default(0)
+  currentChapter   Int      @default(1)
+  playbackSpeed    Float    @default(1.0)
+  isCompleted      Boolean  @default(false)
+  lastPlayedAt     DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  userId      String
+  audiobookId String
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audiobook Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, audiobookId])
+  @@map("playback_states")
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  position  Int
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId      String
+  audiobookId String
+  chapterId   String
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audiobook Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+  chapter   Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@map("bookmarks")
+}

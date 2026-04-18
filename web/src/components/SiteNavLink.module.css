@@ -1,0 +1,32 @@
+.link {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+  position: relative;
+}
+
+.link:hover {
+  color: var(--primary);
+}
+
+.active {
+  color: var(--primary);
+}
+
+.link::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
+
+.link:hover::after,
+.active::after {
+  width: 100%;
+}

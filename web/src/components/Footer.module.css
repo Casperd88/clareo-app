@@ -1,0 +1,120 @@
+.footer {
+  padding: 48px 48px;
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+}
+
+.content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 48px;
+  row-gap: 12px;
+  align-items: start;
+}
+
+.brand {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brandLockup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.2s ease;
+}
+
+.brandLockup:hover {
+  opacity: 0.88;
+}
+
+.nav {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: flex-end;
+  justify-self: end;
+  align-self: start;
+}
+
+.copyright {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.5;
+  color: var(--secondary);
+  max-width: 22rem;
+}
+
+/* className is on the <svg> from Logo — no inner svg, so set fill here */
+.logo {
+  display: block;
+  height: 32px;
+  width: auto;
+  fill: var(--primary);
+}
+
+.logo :is(path, circle) {
+  fill: inherit;
+}
+
+.brandName {
+  margin: 0;
+  padding-top: 2px;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  color: var(--primary);
+  line-height: 1.2;
+}
+
+.tagline {
+  margin: 0;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 15px;
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--secondary);
+}
+
+@media (max-width: 768px) {
+  .footer {
+    padding: 32px 24px 40px;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .brand {
+    gap: 12px;
+  }
+
+  .copyright {
+    max-width: none;
+  }
+
+  .nav {
+    justify-content: flex-start;
+    row-gap: 10px;
+    column-gap: 20px;
+  }
+}

@@ -1,0 +1,2 @@
+# SPA fallback (Cloudflare Pages runs /functions before static redirects)
+/*    /index.html   200

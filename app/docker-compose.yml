@@ -1,0 +1,113 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: audiobook-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: audiobook_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d audiobook_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: audiobook-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb myminio/audiobooks --ignore-existing;
+      mc anonymous set download myminio/audiobooks;
+      exit 0;
+      "
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: audiobook-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/audiobook_db?schema=public
+      NODE_ENV: production
+      PORT: 3000
+      JWT_SECRET: change-this-secret-in-production
+      JWT_EXPIRES_IN: 7d
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://192.168.0.101:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: audiobooks
+      S3_REGION: us-east-1
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+
+  api-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: audiobook-api-dev
+    profiles:
+      - dev
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/audiobook_db?schema=public
+      NODE_ENV: development
+      PORT: 3000
+      JWT_SECRET: dev-secret-key
+      JWT_EXPIRES_IN: 7d
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://192.168.0.101:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: audiobooks
+      S3_REGION: us-east-1
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+  minio_data:
+  uploads_data:

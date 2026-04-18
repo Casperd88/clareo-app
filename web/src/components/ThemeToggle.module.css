@@ -1,0 +1,46 @@
+.toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.toggle:focus {
+  outline: none;
+}
+
+.toggle:hover {
+  background: var(--toggle-hover);
+}
+
+.iconWrapper {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.icon {
+  position: absolute;
+  inset: 0;
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.5;
+  color: var(--secondary);
+  opacity: 0;
+  transform: scale(0.8) rotate(-30deg);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.icon.active {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  color: var(--primary);
+}
+

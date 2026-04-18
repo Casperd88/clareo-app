@@ -1,0 +1,148 @@
+.header {
+  padding: 32px 48px;
+  position: relative;
+  z-index: 100;
+}
+
+.headerInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo svg {
+  height: 32px;
+  width: auto;
+  fill: var(--primary);
+  transition: opacity 0.2s ease;
+}
+
+.logo:hover svg {
+  opacity: 0.7;
+}
+
+/* Desktop Navigation */
+.navGroup {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.desktopNav {
+  display: flex;
+  gap: 40px;
+}
+
+/* Hamburger Button */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hamburger:focus {
+  outline: none;
+}
+
+.hamburger:hover {
+  background: var(--toggle-hover);
+}
+
+.hamburger span {
+  display: block;
+  width: 18px;
+  height: 1.5px;
+  background: var(--primary);
+  border-radius: 1px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hamburger.open span:first-child {
+  transform: rotate(45deg) translate(2px, 2px);
+}
+
+.hamburger.open span:last-child {
+  transform: rotate(-45deg) translate(2px, -2px);
+}
+
+/* Mobile Navigation */
+.mobileNav {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  gap: 0;
+  z-index: 99;
+}
+
+.mobileLink {
+  font-size: 32px;
+  font-weight: 300;
+  color: var(--primary);
+  text-decoration: none;
+  padding: 16px 0;
+  transition: opacity 0.2s ease;
+  border-bottom: 1px solid var(--border);
+}
+
+.mobileLink:last-child {
+  border-bottom: none;
+}
+
+.mobileLink:hover {
+  opacity: 0.5;
+}
+
+.mobileLink.active {
+  opacity: 0.5;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .header {
+    padding: 20px 24px;
+  }
+
+  .desktopNav {
+    display: none;
+  }
+
+  .hamburger {
+    display: flex;
+  }
+
+  .mobileNav {
+    display: flex;
+  }
+}

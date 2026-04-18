@@ -1,0 +1,149 @@
+.wrap {
+  position: fixed;
+  z-index: 200;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  right: max(24px, env(safe-area-inset-right));
+  left: auto;
+  max-width: min(480px, calc(100vw - 48px));
+  pointer-events: none;
+}
+
+.wrap * {
+  pointer-events: auto;
+}
+
+.card {
+  padding: 24px;
+  /* Translucent fill so backdrop-filter reads as frosted glass */
+  background: color-mix(in srgb, var(--surface-secondary) 82%, transparent);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow:
+    0 12px 48px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+}
+
+:global([data-theme="dark"]) .card {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.top {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.waveformIcon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--secondary);
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+.body {
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1.65;
+  color: var(--primary);
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.primary,
+.secondary {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.15s ease;
+}
+
+.primary:focus-visible {
+  outline: 2px solid var(--bg);
+  outline-offset: 2px;
+}
+
+.secondary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.primary {
+  background: var(--primary);
+  color: var(--bg);
+}
+
+.primary:hover {
+  opacity: 0.92;
+}
+
+.primary:active {
+  transform: scale(0.98);
+}
+
+.secondary {
+  /* Use primary hue at high contrast so "minimal" stays clearly legible (not 50% muted text). */
+  background: transparent;
+  color: var(--primary);
+  border-color: var(--border-strong);
+  opacity: 0.88;
+  font-weight: 400;
+}
+
+.secondary:hover {
+  opacity: 1;
+  background: var(--toggle-hover);
+  border-color: var(--border-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary:active {
+    transform: none;
+  }
+
+  .primary,
+  .secondary {
+    transition: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .wrap {
+    left: 16px;
+    right: 16px;
+    max-width: none;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .primary,
+  .secondary {
+    flex: none;
+    width: 100%;
+    text-align: center;
+  }
+}

@@ -1,0 +1,81 @@
+.button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.email {
+  color: var(--primary);
+  transition:
+    opacity 0.2s ease,
+    color 0.2s ease;
+}
+
+.emailMuted {
+  color: var(--secondary);
+}
+
+.button:hover .email:not(.emailMuted) {
+  opacity: 0.7;
+}
+
+.buttonMuted:hover .emailMuted {
+  color: var(--primary);
+}
+
+.feedback {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  margin-left: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #15803d;
+  background: color-mix(in srgb, #22c55e 16%, transparent);
+
+  animation: feedbackChip 2s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+:global([data-theme="dark"]) .feedback {
+  color: #4ade80;
+  background: color-mix(in srgb, #22c55e 18%, transparent);
+}
+
+@keyframes feedbackChip {
+  0% {
+    opacity: 0;
+    transform: translateY(calc(-50% + 10px));
+  }
+  22% {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+  68% {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(calc(-50% - 10px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feedback {
+    animation: none;
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+}
