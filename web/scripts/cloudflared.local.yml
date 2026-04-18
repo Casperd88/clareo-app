@@ -1,0 +1,7 @@
+tunnel: 869665ca-df7d-4c44-a852-d7365f99dc7c
+credentials-file: /Users/casperdeseyne/.cloudflared/869665ca-df7d-4c44-a852-d7365f99dc7c.json
+
+ingress:
+  - hostname: local.tryclareo.com
+    service: http://127.0.0.1:5173
+  - service: http_status:404

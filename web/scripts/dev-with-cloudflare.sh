@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HOSTNAME="${CF_TUNNEL_HOSTNAME:-local.tryclareo.com}"
-TARGET_URL="${CF_TUNNEL_TARGET_URL:-http://127.0.0.1:5173}"
+CF_CONFIG="${CF_TUNNEL_CONFIG:-./scripts/cloudflared.local.yml}"
 
 if ! command -v cloudflared >/dev/null 2>&1; then
   echo "❌ cloudflared not found. Install with: brew install cloudflared"
   exit 1
 fi
 
-echo "🌐 Starting Cloudflare tunnel: https://${HOSTNAME} -> ${TARGET_URL}"
-cloudflared tunnel --url "${TARGET_URL}" --hostname "${HOSTNAME}" --no-autoupdate &
+echo "🌐 Starting Cloudflare named tunnel (config: ${CF_CONFIG})"
+cloudflared tunnel --config "${CF_CONFIG}" run &
 CF_PID=$!
 
 cleanup() {
