@@ -49,7 +49,7 @@ export default function Home() {
 
       <section className={styles.hero}>
         <h1 className={styles.title}>
-          OpenClaw, The best ideas,
+          The best ideas,
           <br />
           <span className={styles.gradient}>distilled.</span>
         </h1>
