@@ -45,7 +45,9 @@ function waitlistDevApi() {
         try {
           const body = JSON.parse(raw || "{}");
           const email =
-            typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+            typeof body.email === "string"
+              ? body.email.trim().toLowerCase()
+              : "";
           const ok =
             email.length > 0 &&
             email.length <= 254 &&
@@ -69,4 +71,7 @@ function waitlistDevApi() {
 
 export default defineConfig({
   plugins: [react(), waitlistDevApi()],
+  server: {
+    allowedHosts: ["local.tryclareo.com"],
+  },
 });
