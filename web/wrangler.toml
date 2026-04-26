@@ -2,8 +2,8 @@
 #
 # This project is set to "bindings managed in wrangler.toml" in the dashboard, so
 # you cannot add KV in the UI. To use WAITLIST (optional):
-#   - CI: set repo secrets WAITLIST_KV_ID and WAITLIST_KV_PREVIEW_ID (see
-#     deploy-web-pages.yml); or
+#   - CI: add repo secret WAITLIST_KV_ID (namespace hex id, see Workers KV list).
+#     Optional WAITLIST_KV_PREVIEW_ID; if omitted, preview deploys use the same KV.
 #   - Commit [[kv_namespaces]] below with real hex ids; or
 #   - For local only: add web/wrangler.local.toml (gitignored) with the same block.
 # Invalid placeholder ids in this file break deploy (Error 8000022). Without KV,
