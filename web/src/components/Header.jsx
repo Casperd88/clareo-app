@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import Logo from './Logo';
-import SiteNavLink from './SiteNavLink';
-import ThemeToggle from './ThemeToggle';
-import styles from './Header.module.css';
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import Logo from "./Logo";
+import SiteNavLink from "./SiteNavLink";
+import ThemeToggle from "./ThemeToggle";
+import styles from "./Header.module.css";
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -20,13 +20,36 @@ export default function Header() {
         setIsOpen(false);
       }
     };
-    document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [isOpen]);
 
+  // Publish the real header height as a CSS variable so the Home hero can
+  // tuck underneath it (so e.g. the lamp cord starts at the very top of the
+  // viewport). Using an observer keeps it correct across font loads, the
+  // mobile nav opening, responsive breakpoints, etc.
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const update = () => {
+      document.documentElement.style.setProperty(
+        "--header-height",
+        `${el.offsetHeight}px`,
+      );
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
   const navLinks = [
-    { to: '/about', label: 'About' },
-    { to: '/contact', label: 'Contact' },
+    { to: "/about", label: "About" },
+    { to: "/contact", label: "Contact" },
   ];
 
   return (
@@ -48,7 +71,7 @@ export default function Header() {
             <ThemeToggle />
             <button
               type="button"
-              className={`${styles.hamburger} ${isOpen ? styles.open : ''}`}
+              className={`${styles.hamburger} ${isOpen ? styles.open : ""}`}
               onClick={() => setIsOpen(!isOpen)}
               aria-label="Toggle menu"
             >
@@ -73,7 +96,7 @@ export default function Header() {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`${styles.mobileLink} ${location.pathname === link.to ? styles.active : ''}`}
+                className={`${styles.mobileLink} ${location.pathname === link.to ? styles.active : ""}`}
                 onClick={closeMenu}
               >
                 {link.label}

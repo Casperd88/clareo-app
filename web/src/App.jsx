@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from './context/ThemeContext';
-import AuroraBackground from './components/AuroraBackground';
+import AuroraHomeRoute from './components/AuroraHomeRoute';
 import Header from './components/Header';
 import ScrollToTop from './components/ScrollToTop';
 import AnalyticsConsentBanner from './components/AnalyticsConsentBanner';
@@ -33,7 +33,7 @@ export default function App() {
     <ThemeProvider>
       <BrowserRouter>
         <ScrollToTop />
-        <AuroraBackground />
+        <AuroraHomeRoute />
         <Header />
         <AnimatedRoutes />
         <AnalyticsConsentBanner />

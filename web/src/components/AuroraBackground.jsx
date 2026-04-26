@@ -13,15 +13,28 @@ export default function AuroraBackground() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const gl = canvas.getContext('webgl');
+    // antialias: false — the shader is smooth gradients only, so MSAA
+    // doesn't change the output but costs a measurable amount of fill rate
+    // on integrated / mobile GPUs.
+    const gl = canvas.getContext('webgl', {
+      antialias: false,
+      depth: false,
+      stencil: false,
+      premultipliedAlpha: false,
+      powerPreference: 'low-power',
+    });
     if (!gl) return;
 
-    function resize() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      gl.viewport(0, 0, canvas.width, canvas.height);
-    }
+    // Mobile / coarse-pointer devices are the bottleneck. The shader is
+    // fragment-bound, so the dominant cost is (canvas pixels) × (per-pixel
+    // ALU). Capping DPR at 1 and rendering at 30fps cuts shader work ~6x
+    // versus desktop's 60fps × DPR2 budget without any visible difference
+    // for these slow, low-frequency colour washes.
+    const coarseQ = window.matchMedia('(pointer: coarse)');
+    const narrowQ = window.matchMedia('(max-width: 900px)');
+    const reducedQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const isLite = () => coarseQ.matches || narrowQ.matches;
+    const isReduced = () => reducedQ.matches;
 
     const vsSource = `
       attribute vec2 a_position;
@@ -144,7 +157,7 @@ export default function AuroraBackground() {
         vec3 col4 = vec3(0.40, 0.85, 0.70);  // mint
         vec3 col5 = vec3(1.00, 0.70, 0.40);  // peach
 
-        vec3 bgLight = vec3(0.96, 0.96, 0.965);
+        vec3 bgLight = vec3(0.9451, 0.9294, 0.9137); // #F1EDE9
         vec3 bgDark  = vec3(0.102, 0.114, 0.141);
         vec3 bg = mix(bgLight, bgDark, u_dark);
 
@@ -265,27 +278,95 @@ export default function AuroraBackground() {
     const uTime = gl.getUniformLocation(prog, 'u_time');
     const uDark = gl.getUniformLocation(prog, 'u_dark');
 
-    resize();
-    window.addEventListener('resize', resize);
+    function resize() {
+      const cap = isLite() ? 1 : 2;
+      const dpr = Math.min(window.devicePixelRatio || 1, cap);
+      const w = Math.max(1, Math.floor(window.innerWidth * dpr));
+      const h = Math.max(1, Math.floor(window.innerHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        gl.viewport(0, 0, w, h);
+      }
+    }
 
-    let animationId;
+    resize();
+    let resizeRaf = 0;
+    function onResize() {
+      // matchMedia changes (e.g. orientation flip switching coarse/fine
+      // pointer) come through onResize on most browsers — debounce so we
+      // don't realloc the framebuffer mid-gesture.
+      cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(resize);
+    }
+    window.addEventListener('resize', onResize);
+
+    let animationId = 0;
+    let running = true;
+    let lastDraw = 0;
     let currentDark = isDarkRef.current ? 1.0 : 0.0;
-    
+
     function frame(ts) {
+      if (!running) return;
+
+      // 30fps on mobile, otherwise vsync-bound (~60fps). Halving the frame
+      // rate halves shader work per second on the platform that needs it
+      // most, with no perceptible difference for slow colour washes.
+      const minFrameMs = isLite() ? 1000 / 30 : 0;
+      if (minFrameMs && ts - lastDraw < minFrameMs) {
+        animationId = requestAnimationFrame(frame);
+        return;
+      }
+      lastDraw = ts;
+
       const targetDark = isDarkRef.current ? 1.0 : 0.0;
       currentDark += (targetDark - currentDark) * 0.05;
-      
+
       gl.uniform2f(uRes, canvas.width, canvas.height);
       gl.uniform1f(uTime, ts * 0.001);
       gl.uniform1f(uDark, currentDark);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+      // For users with prefers-reduced-motion, render a single static
+      // frame and stop — they get the colour wash without the animation.
+      if (isReduced()) return;
+
       animationId = requestAnimationFrame(frame);
     }
     animationId = requestAnimationFrame(frame);
 
-    return () => {
-      window.removeEventListener('resize', resize);
+    function onVisibility() {
+      if (document.hidden) {
+        running = false;
+        cancelAnimationFrame(animationId);
+      } else if (!running) {
+        running = true;
+        animationId = requestAnimationFrame(frame);
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+
+    // Some browsers fire this on context loss (e.g. mobile Safari evicts
+    // GL contexts under memory pressure). Without handling it the canvas
+    // would silently freeze; we just stop the rAF loop.
+    function onContextLost(e) {
+      e.preventDefault();
+      running = false;
       cancelAnimationFrame(animationId);
+    }
+    canvas.addEventListener('webglcontextlost', onContextLost);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(animationId);
+      cancelAnimationFrame(resizeRaf);
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', onVisibility);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
+      gl.deleteProgram(prog);
+      if (vs) gl.deleteShader(vs);
+      if (fs) gl.deleteShader(fs);
+      gl.deleteBuffer(buf);
     };
   }, []);
 

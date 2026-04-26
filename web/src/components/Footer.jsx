@@ -12,7 +12,9 @@ export default function Footer() {
             <Logo className={styles.logo} />
             <span className={styles.brandName}>Clareo</span>
           </Link>
-          <p className={styles.tagline}>The best ideas, distilled.</p>
+          <p className={styles.tagline}>
+            The best ideas,<i>distilled.</i>
+          </p>
         </div>
 
         <nav className={styles.nav} aria-label="Footer">

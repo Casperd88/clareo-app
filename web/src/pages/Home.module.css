@@ -1,31 +1,52 @@
 .hero {
-  flex: 1;
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
-  padding: 60px 48px 80px;
-  min-height: 60vh;
+  padding: calc(40px + var(--header-height)) 48px 80px;
+  margin-top: calc(-1 * var(--header-height));
+  /* Anchor the hero exactly to the viewport so children can be
+     positioned from the top OR bottom with pixel confidence. */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 640px;
+  width: 100%;
 }
 
 .title {
-  font-family: "Instrument Serif", Georgia, serif;
-  font-size: clamp(44px, 8vw, 88px);
+  font-family: "PP Editorial New", Georgia, serif;
+  font-size: clamp(48px, 8.4vw, 96px);
   font-weight: 400;
-  font-style: italic;
-  line-height: 1.15;
-  letter-spacing: -1px;
+  font-style: normal;
+  line-height: 1.02;
+  letter-spacing: -2px;
   margin-bottom: 36px;
   opacity: 0;
   animation: fadeUp 1s ease 0.3s forwards;
 }
 
 .gradient {
+  display: inline-block;
+  font-weight: 200;
+  font-style: italic;
+  font-size: 1.08em;
+  letter-spacing: -2.5px;
   background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  color: transparent;
 }
 
 .description {
@@ -39,12 +60,20 @@
   animation: fadeUp 1s ease 0.5s forwards;
 }
 
+/* Against the dimmer dark backdrop the default 50%-white secondary is a
+   bit too quiet; nudge the description up so it holds the eye without
+   competing with the title. */
+[data-theme="dark"] .description {
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  font-family: "PP Neue Gstaad", sans-serif;
   font-size: clamp(13px, 1vw, 15px);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--secondary);
   letter-spacing: 0.3px;
   padding: 16px 32px;
@@ -52,12 +81,24 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-radius: 100px;
-  border: 1px solid var(--border);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.04),
-    0 2px 64px rgba(0, 0, 0, 0.04);
+  border: none;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    0 2px 64px rgba(0, 0, 0, 0.1);
   opacity: 0;
   animation: fadeUp 1s ease 0.7s forwards;
+}
+
+/* In dark mode the drop-shadow disappears into the dark backdrop — swap
+   to a hairline border + brighter inner surface so the pill gets proper
+   lift and reads as an interactive element. */
+[data-theme="dark"] .badge {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .appleLogo {
@@ -96,10 +137,7 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-radius: 14px;
-  border: 1px solid var(--border);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.04),
-    0 1px 4px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .iconPink,
@@ -122,8 +160,9 @@
 }
 
 .aboutText h3 {
+  font-family: "PP Neue Gstaad Wide", sans-serif;
   font-size: clamp(17px, 1.3vw, 20px);
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: -0.2px;
   margin-bottom: 8px;
   color: var(--primary);
@@ -160,10 +199,10 @@
 }
 
 .subscribeTitle {
-  font-family: "Instrument Serif", Georgia, serif;
+  font-family: "PP Editorial New", Georgia, serif;
   font-size: clamp(28px, 4vw, 36px);
   font-weight: 400;
-  font-style: italic;
+  font-style: normal;
   letter-spacing: -0.5px;
   margin-bottom: 12px;
   color: var(--primary);
@@ -186,7 +225,7 @@
   border-radius: 100px;
   padding: 6px;
   border: 1px solid var(--border);
-  box-shadow: 
+  box-shadow:
     0 8px 40px rgba(0, 0, 0, 0.06),
     0 1px 3px rgba(0, 0, 0, 0.02);
   min-width: 320px;
@@ -220,7 +259,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
   flex-shrink: 0;
 }
 
@@ -281,13 +322,20 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 @media (max-width: 768px) {
   .hero {
     padding: 60px 24px;
+    min-height: 72vh;
+    min-height: 72dvh;
   }
 
   .about {

@@ -3,7 +3,8 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.8;
+  /* Opacity is driven by AuroraHomeRoute’s shell; canvas stays 1.0. */
+  opacity: 1;
 }
 
 .container canvas {

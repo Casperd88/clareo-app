@@ -36,11 +36,14 @@ export default function AnalyticsConsentBanner() {
     >
       <div className={styles.card}>
         <div className={styles.top}>
-          <AudioWaveform className={styles.waveformIcon} strokeWidth={1.5} aria-hidden />
+          <AudioWaveform
+            className={styles.waveformIcon}
+            strokeWidth={1.5}
+            aria-hidden
+          />
           <p id="consent-desc" className={styles.body}>
-            Clareo runs on thoughtful data, not surveillance.
-            <br />
-            Allow deeper analytics to help us improve Clareo.
+            Clareo runs on thoughtful data, not surveillance. Allow deeper
+            analytics to help us improve Clareo.
           </p>
         </div>
         <div className={styles.actions}>
