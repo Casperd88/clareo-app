@@ -40,6 +40,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Bindings are wrangler-only for this project (dashboard is disabled). Optional
+      # WAITLIST KV: create two namespaces (prod + preview), add both repo secrets, deploy.
+      - name: Add WAITLIST KV to wrangler.toml
+        env:
+          WAITLIST_KV_ID: ${{ secrets.WAITLIST_KV_ID }}
+          WAITLIST_KV_PREVIEW_ID: ${{ secrets.WAITLIST_KV_PREVIEW_ID }}
+        run: |
+          if [ -n "$WAITLIST_KV_ID" ] && [ -n "$WAITLIST_KV_PREVIEW_ID" ]; then
+            {
+              echo ""
+              echo "[[kv_namespaces]]"
+              echo 'binding = "WAITLIST"'
+              echo "id = \"$WAITLIST_KV_ID\""
+              echo "preview_id = \"$WAITLIST_KV_PREVIEW_ID\""
+            } >> wrangler.toml
+          fi
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:

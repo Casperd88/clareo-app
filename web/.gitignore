@@ -25,4 +25,7 @@ dist-ssr
 
 .env
 
+# Local wrangler overrides (e.g. KV namespace ids for pages:dev)
+wrangler.local.toml
+
 .DS_Store
