@@ -15,22 +15,40 @@ import { useAppDispatch, useAppSelector } from "../hooks";
 import { login, register, clearError } from "../store/authSlice";
 import { Logo } from "../components/Logo";
 
+function readUrlWantsSignUp(): boolean {
+  if (Platform.OS !== "web" || typeof window === "undefined") return false;
+  const { search, hash } = window.location;
+  const params = new URLSearchParams(search);
+  if (
+    params.get("signup") === "1" ||
+    params.get("flow") === "signup" ||
+    params.get("signup") === "true"
+  ) {
+    return true;
+  }
+  if (hash && hash.length > 1) {
+    const h = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+    if (h.get("signup") === "1" || h.get("flow") === "signup") {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function AuthScreen() {
   const dispatch = useAppDispatch();
   const { isLoading, error } = useAppSelector((state) => state.auth);
 
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(() => readUrlWantsSignUp());
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const wantSignup =
-      params.get("signup") === "1" || params.get("flow") === "signup";
-    if (wantSignup) {
-      setIsSignUp(true);
-    }
+    setIsSignUp(readUrlWantsSignUp());
+    const onChange = () => setIsSignUp(readUrlWantsSignUp());
+    window.addEventListener("popstate", onChange);
+    return () => window.removeEventListener("popstate", onChange);
   }, []);
 
   const handleSubmit = async () => {
@@ -153,16 +171,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 40,
+    ...Platform.select({
+      web: { alignItems: "center" as const },
+      default: {},
+    }),
   },
   header: {
     alignItems: "center",
     marginBottom: 40,
+    ...Platform.select({
+      web: { width: "100%", maxWidth: 400, alignSelf: "center" as const },
+      default: {},
+    }),
   },
   logoContainer: {
     marginBottom: 20,
   },
   form: {
     width: "100%",
+    ...Platform.select({
+      web: {
+        maxWidth: 400,
+        alignSelf: "center" as const,
+        flexShrink: 0,
+      },
+      default: {},
+    }),
   },
   inputContainer: {
     marginBottom: 20,
@@ -238,5 +272,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 32,
     lineHeight: 18,
+    ...Platform.select({
+      web: { maxWidth: 400, alignSelf: "center" as const, width: "100%" },
+      default: {},
+    }),
   },
 });

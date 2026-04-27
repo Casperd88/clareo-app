@@ -8,5 +8,6 @@ const DEFAULT_DEV_APP_ORIGIN = "http://localhost:8081";
 export function getClareoAppGetStartedUrl() {
   const raw = import.meta.env.VITE_CLAREO_APP_URL || DEFAULT_DEV_APP_ORIGIN;
   const base = String(raw).replace(/\/$/, "");
-  return `${base}/?signup=1`;
+  // Hash fallback: some hosts strip or rewrite query strings on first load
+  return `${base}/?signup=1#signup=1`;
 }

@@ -1,12 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { Platform } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
-import {
-  MediaControl,
-  PlaybackState,
-  Command,
-  MediaControlEvent,
-} from "expo-media-control";
 import { useAppDispatch, useAppSelector, useSignedUrls } from "../hooks";
 import {
   setPosition,
@@ -18,6 +12,15 @@ import {
   setError,
 } from "../store/playerSlice";
 import { playbackApi } from "../api";
+
+/**
+ * `expo-media-control` must not be loaded on web (it calls requireNativeModule at import time).
+ */
+function getExpoMediaControlModule() {
+  if (Platform.OS === "web") return null;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require("expo-media-control");
+}
 
 /**
  * AudioManager - Manages audio playback at the app level
@@ -180,9 +183,8 @@ export function AudioManager() {
   useEffect(() => {
     return () => {
       unloadAudio();
-      if (Platform.OS !== "web") {
-        MediaControl.disableMediaControls().catch(() => {});
-      }
+      const m = getExpoMediaControlModule();
+      m?.MediaControl.disableMediaControls().catch(() => {});
     };
   }, [unloadAudio]);
 
@@ -219,9 +221,11 @@ export function AudioManager() {
     soundRef.current.setRateAsync(playbackSpeed, true).catch(() => {});
   }, [playbackSpeed, isReady]);
 
-  // Media controls (native only; expo-media-control has no web implementation)
+  // Media controls (native only; module is never required on web)
   useEffect(() => {
-    if (Platform.OS === "web" || !isReady || !currentAudiobook) return;
+    const m = getExpoMediaControlModule();
+    if (!m || !isReady || !currentAudiobook) return;
+    const { MediaControl, PlaybackState, Command } = m;
 
     const bookId = currentAudiobook.id;
     const needsInit = mediaControlsInitializedForId.current !== bookId;
@@ -261,14 +265,24 @@ export function AudioManager() {
     };
 
     initOrUpdateMediaControls();
-  }, [isReady, currentAudiobook?.id, currentAudiobook?.title, signedUrls?.coverImage, duration]);
+  }, [
+    isReady,
+    currentAudiobook,
+    isPlaying,
+    position,
+    playbackSpeed,
+    signedUrls?.coverImage,
+    duration,
+  ]);
 
   // Media control playback state updates
   const lastPlayState = useRef(isPlaying);
   const lastSpeedState = useRef(playbackSpeed);
 
   useEffect(() => {
-    if (Platform.OS === "web" || !mediaControlsInitializedForId.current) return;
+    const m = getExpoMediaControlModule();
+    if (!m || !mediaControlsInitializedForId.current) return;
+    const { MediaControl, PlaybackState } = m;
 
     if (lastPlayState.current !== isPlaying || lastSpeedState.current !== playbackSpeed) {
       MediaControl.updatePlaybackState(
@@ -276,7 +290,7 @@ export function AudioManager() {
         position,
         isPlaying ? playbackSpeed : 0
       ).catch(() => {});
-      
+
       lastPlayState.current = isPlaying;
       lastSpeedState.current = playbackSpeed;
     }
@@ -284,9 +298,14 @@ export function AudioManager() {
 
   // Media control event listener
   useEffect(() => {
-    if (Platform.OS === "web" || !isReady) return;
+    const m = getExpoMediaControlModule();
+    if (!m || !isReady) return;
+    const { MediaControl, Command } = m;
 
-    const handleMediaEvent = async (event: MediaControlEvent) => {
+    const handleMediaEvent = async (event: {
+      command: number;
+      data?: { interval?: number; position?: number };
+    }) => {
       switch (event.command) {
         case Command.PLAY:
           dispatch(play());

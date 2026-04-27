@@ -1,7 +1,7 @@
 import axios from "axios";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
-import { store } from "../store";
+import { getStoreForApi } from "../store/storeRef";
 
 function getApiUrl(): string {
   if (!__DEV__) {
@@ -34,8 +34,9 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const state = store.getState();
-  const token = state.auth.token;
+  const s = getStoreForApi();
+  if (!s) return config;
+  const token = (s.getState() as { auth: { token: string | null } }).auth.token;
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -48,7 +49,8 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      store.dispatch({ type: "auth/logout" });
+      const s = getStoreForApi();
+      s?.dispatch({ type: "auth/logout" });
     }
     return Promise.reject(error);
   }
