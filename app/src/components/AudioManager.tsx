@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
+import { Platform } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
 import {
   MediaControl,
@@ -179,7 +180,9 @@ export function AudioManager() {
   useEffect(() => {
     return () => {
       unloadAudio();
-      MediaControl.disableMediaControls().catch(() => {});
+      if (Platform.OS !== "web") {
+        MediaControl.disableMediaControls().catch(() => {});
+      }
     };
   }, [unloadAudio]);
 
@@ -216,9 +219,9 @@ export function AudioManager() {
     soundRef.current.setRateAsync(playbackSpeed, true).catch(() => {});
   }, [playbackSpeed, isReady]);
 
-  // Media controls
+  // Media controls (native only; expo-media-control has no web implementation)
   useEffect(() => {
-    if (!isReady || !currentAudiobook) return;
+    if (Platform.OS === "web" || !isReady || !currentAudiobook) return;
 
     const bookId = currentAudiobook.id;
     const needsInit = mediaControlsInitializedForId.current !== bookId;
@@ -265,7 +268,7 @@ export function AudioManager() {
   const lastSpeedState = useRef(playbackSpeed);
 
   useEffect(() => {
-    if (!mediaControlsInitializedForId.current) return;
+    if (Platform.OS === "web" || !mediaControlsInitializedForId.current) return;
 
     if (lastPlayState.current !== isPlaying || lastSpeedState.current !== playbackSpeed) {
       MediaControl.updatePlaybackState(
@@ -281,7 +284,7 @@ export function AudioManager() {
 
   // Media control event listener
   useEffect(() => {
-    if (!isReady) return;
+    if (Platform.OS === "web" || !isReady) return;
 
     const handleMediaEvent = async (event: MediaControlEvent) => {
       switch (event.command) {

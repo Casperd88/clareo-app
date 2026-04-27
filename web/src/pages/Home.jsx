@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sparkles, Headphones, ArrowRight, Check } from "lucide-react";
 import Layout from "../components/Layout";
 import HeroCollage from "../components/HeroCollage";
+import { getClareoAppGetStartedUrl } from "../lib/appUrl";
 import styles from "./Home.module.css";
 
 export default function Home() {
@@ -61,7 +62,13 @@ export default function Home() {
             <br />
             refined into clear, listenable insight.
           </p>
-          <p className={styles.badge}>Coming soon</p>
+          <a
+            href={getClareoAppGetStartedUrl()}
+            className={styles.badge}
+            rel="noopener noreferrer"
+          >
+            Get started
+          </a>
         </div>
       </section>
 

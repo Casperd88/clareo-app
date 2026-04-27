@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,16 @@ export function AuthScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const wantSignup =
+      params.get("signup") === "1" || params.get("flow") === "signup";
+    if (wantSignup) {
+      setIsSignUp(true);
+    }
+  }, []);
 
   const handleSubmit = async () => {
     if (!email || !password) return;
