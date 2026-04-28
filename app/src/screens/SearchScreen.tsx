@@ -20,8 +20,8 @@ import {
 } from "../hooks";
 import type { Audiobook } from "../types";
 import { setAudiobook, play } from "../store/playerSlice";
-import { Colors } from "../constants/colors";
-import { Fonts } from "../constants/typography";
+import { useTheme, pickAccent } from "../theme";
+import type { AppTheme } from "../theme";
 
 const DEFAULT_POPULAR_SEARCHES = [
   "Atomic Habits",
@@ -50,33 +50,27 @@ const GENRE_ID_TO_NAME: Record<string, string> = {
   parenting: "Parenting",
 };
 
-function getBookColor(title: string): string {
-  const colors = [
-    "#1a1a2e", "#16213e", "#0f3460", "#533483",
-    "#4a1942", "#2d132c", "#1e3a5f", "#3d2645",
-  ];
-  return colors[title.charCodeAt(0) % colors.length];
+interface SearchResultCardProps {
+  audiobook: Audiobook;
+  onPlay: () => void;
+  theme: AppTheme;
+  styles: ReturnType<typeof createStyles>;
 }
 
 const SearchResultCard = memo(function SearchResultCard({
   audiobook,
   onPlay,
-}: {
-  audiobook: Audiobook;
-  onPlay: () => void;
-}) {
+  theme,
+  styles,
+}: SearchResultCardProps) {
   const durationMinutes = Math.round(audiobook.totalDuration / 60);
-  const bgColor = getBookColor(audiobook.title);
+  const accent = pickAccent(audiobook.id ?? audiobook.title);
 
   return (
-    <TouchableOpacity
-      style={styles.resultCard}
-      onPress={onPlay}
-      activeOpacity={0.8}
-    >
-      <View style={[styles.resultCover, { backgroundColor: bgColor }]}>
-        <Text style={styles.resultInitial} numberOfLines={2}>
-          {audiobook.title.slice(0, 20)}
+    <TouchableOpacity style={styles.resultCard} onPress={onPlay} activeOpacity={0.85}>
+      <View style={[styles.resultCover, { backgroundColor: accent }]}>
+        <Text style={styles.resultInitial} numberOfLines={3}>
+          {audiobook.title}
         </Text>
       </View>
       <View style={styles.resultInfo}>
@@ -87,7 +81,7 @@ const SearchResultCard = memo(function SearchResultCard({
           {audiobook.author?.name}
         </Text>
         <View style={styles.resultMeta}>
-          <Clock size={12} color="#999" />
+          <Clock size={12} color={theme.colors.tertiary} />
           <Text style={styles.resultDuration}>{durationMinutes} min</Text>
           {audiobook.genres?.[0] && (
             <>
@@ -98,7 +92,7 @@ const SearchResultCard = memo(function SearchResultCard({
         </View>
       </View>
       <View style={styles.playButtonSmall}>
-        <Play size={16} color="#fff" fill="#fff" />
+        <Play size={14} color={theme.colors.primaryInverse} fill={theme.colors.primaryInverse} />
       </View>
     </TouchableOpacity>
   );
@@ -106,21 +100,23 @@ const SearchResultCard = memo(function SearchResultCard({
 
 export function SearchScreen() {
   const dispatch = useAppDispatch();
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
 
   const { data: catalogueData, isLoading } = useCatalogue();
   const { data: preferences } = useUserPreferences();
   const addToLibrary = useAddToLibrary();
-  
-  // Personalize popular searches based on user's interests
+
   const popularSearches = useMemo(() => {
     if (preferences?.genres && preferences.genres.length > 0) {
       const userGenreNames = preferences.genres
         .map((id: string) => GENRE_ID_TO_NAME[id])
         .filter(Boolean);
-      // Mix user interests with general popular searches
-      const personalized = [...new Set([...userGenreNames.slice(0, 3), ...DEFAULT_POPULAR_SEARCHES])];
+      const personalized = [
+        ...new Set([...userGenreNames.slice(0, 3), ...DEFAULT_POPULAR_SEARCHES]),
+      ];
       return personalized.slice(0, 6);
     }
     return DEFAULT_POPULAR_SEARCHES;
@@ -149,13 +145,12 @@ export function SearchScreen() {
     (audiobook: Audiobook) => {
       addToLibrary.mutate(audiobook.id, {
         onSettled: () => {
-          // Search results start from beginning (no saved position)
           dispatch(setAudiobook({ audiobook, startPosition: 0 }));
           dispatch(play());
         },
       });
     },
-    [dispatch, addToLibrary]
+    [dispatch, addToLibrary],
   );
 
   const handlePopularSearch = (term: string) => {
@@ -172,18 +167,17 @@ export function SearchScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
+        <Text style={styles.eyebrow}>Find your next listen</Text>
         <Text style={styles.title}>Search</Text>
       </View>
 
       <View style={styles.searchContainer}>
-        <View
-          style={[styles.searchBar, isFocused && styles.searchBarFocused]}
-        >
-          <Search size={20} color="#999" strokeWidth={2} />
+        <View style={[styles.searchBar, isFocused && styles.searchBarFocused]}>
+          <Search size={18} color={theme.colors.tertiary} strokeWidth={1.8} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search books, authors, topics..."
-            placeholderTextColor="#999"
+            placeholder="Books, authors, ideas…"
+            placeholderTextColor={theme.colors.tertiary}
             value={query}
             onChangeText={setQuery}
             onFocus={() => setIsFocused(true)}
@@ -193,7 +187,7 @@ export function SearchScreen() {
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-              <X size={18} color="#999" strokeWidth={2} />
+              <X size={16} color={theme.colors.tertiary} strokeWidth={2} />
             </TouchableOpacity>
           )}
         </View>
@@ -201,7 +195,7 @@ export function SearchScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       ) : showResults ? (
         <FlatList
@@ -211,14 +205,16 @@ export function SearchScreen() {
             <SearchResultCard
               audiobook={item}
               onPlay={() => handlePlay(item)}
+              theme={theme}
+              styles={styles}
             />
           )}
           contentContainerStyle={styles.resultsList}
           ListEmptyComponent={
             <View style={styles.emptyResults}>
-              <Text style={styles.emptyTitle}>No results found</Text>
+              <Text style={styles.emptyTitle}>Nothing found</Text>
               <Text style={styles.emptySubtitle}>
-                Try different keywords or browse categories
+                Try a different keyword, or browse the categories below.
               </Text>
             </View>
           }
@@ -228,9 +224,9 @@ export function SearchScreen() {
         <View style={styles.suggestionsContainer}>
           <View style={styles.suggestionsSection}>
             <View style={styles.sectionHeader}>
-              <TrendingUp size={18} color="#000" strokeWidth={2} />
+              <TrendingUp size={16} color={theme.colors.primary} strokeWidth={1.8} />
               <Text style={styles.sectionTitle}>
-                {preferences?.genres?.length ? "Suggested for You" : "Popular Searches"}
+                {preferences?.genres?.length ? "Suggested for you" : "Popular searches"}
               </Text>
             </View>
             <View style={styles.popularTags}>
@@ -239,6 +235,7 @@ export function SearchScreen() {
                   key={term}
                   style={styles.popularTag}
                   onPress={() => handlePopularSearch(term)}
+                  activeOpacity={0.85}
                 >
                   <Text style={styles.popularTagText}>{term}</Text>
                 </TouchableOpacity>
@@ -247,7 +244,7 @@ export function SearchScreen() {
           </View>
 
           <View style={styles.suggestionsSection}>
-            <Text style={styles.sectionTitle}>Browse by Category</Text>
+            <Text style={styles.sectionTitle}>Browse by category</Text>
             <View style={styles.categoryGrid}>
               {[
                 "Personal Development",
@@ -261,6 +258,7 @@ export function SearchScreen() {
                   key={category}
                   style={styles.categoryCard}
                   onPress={() => handlePopularSearch(category)}
+                  activeOpacity={0.85}
                 >
                   <Text style={styles.categoryText}>{category}</Text>
                 </TouchableOpacity>
@@ -273,191 +271,204 @@ export function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-  },
-  title: {
-    fontSize: 36,
-    fontFamily: Fonts.serifItalic,
-    color: "#000",
-    letterSpacing: -0.3,
-  },
-  searchContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 48,
-    gap: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  searchBarFocused: {
-    borderColor: "#000",
-    backgroundColor: "#fff",
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: "#000",
-  },
-  clearButton: {
-    padding: 4,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  resultsList: {
-    paddingHorizontal: 20,
-  },
-  resultCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    gap: 14,
-  },
-  resultCover: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
-    padding: 6,
-    justifyContent: "center",
-  },
-  resultInitial: {
-    fontSize: 10,
-    fontFamily: Fonts.bold,
-    color: "#fff",
-    lineHeight: 13,
-  },
-  resultInfo: {
-    flex: 1,
-  },
-  resultTitle: {
-    fontSize: 15,
-    fontFamily: Fonts.medium,
-    color: "#000",
-    marginBottom: 2,
-  },
-  resultAuthor: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: "#666",
-    marginBottom: 4,
-  },
-  resultMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  resultDuration: {
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    color: "#999",
-  },
-  dot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: "#ccc",
-    marginHorizontal: 4,
-  },
-  resultGenre: {
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    color: "#999",
-  },
-  playButtonSmall: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingLeft: 2,
-  },
-  emptyResults: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 60,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.medium,
-    color: "#000",
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: "#888",
-  },
-  suggestionsContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  suggestionsSection: {
-    marginBottom: 32,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-    color: "#000",
-  },
-  popularTags: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  popularTag: {
-    backgroundColor: "#f5f5f5",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  popularTagText: {
-    fontSize: 14,
-    fontFamily: Fonts.medium,
-    color: "#000",
-  },
-  categoryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 12,
-  },
-  categoryCard: {
-    backgroundColor: "#000",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  categoryText: {
-    fontSize: 14,
-    fontFamily: Fonts.medium,
-    color: "#fff",
-  },
-});
+function createStyles(theme: AppTheme) {
+  const { colors, type, space, radius, shadows, fonts } = theme;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    header: {
+      paddingHorizontal: space.xl,
+      paddingTop: space.xs,
+      paddingBottom: space.md,
+    },
+    eyebrow: {
+      ...type.eyebrow,
+      color: colors.tertiary,
+      marginBottom: space.xs,
+    },
+    title: {
+      fontFamily: fonts.display.italic,
+      fontStyle: "italic",
+      fontSize: 36,
+      lineHeight: 40,
+      color: colors.primary,
+      letterSpacing: -0.4,
+    },
+    searchContainer: {
+      paddingHorizontal: space.xl,
+      marginBottom: space.md,
+    },
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      paddingHorizontal: space.md,
+      height: 48,
+      gap: space.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    searchBarFocused: {
+      borderColor: colors.primary,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      fontFamily: fonts.body.regular,
+      color: colors.primary,
+    },
+    clearButton: {
+      padding: 4,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    resultsList: {
+      paddingHorizontal: space.xl,
+    },
+    resultCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: space.sm + 4,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+      gap: space.sm + 4,
+    },
+    resultCover: {
+      width: 56,
+      height: 56,
+      borderRadius: radius.md,
+      padding: space.xs + 2,
+      justifyContent: "flex-end",
+    },
+    resultInitial: {
+      fontFamily: fonts.display.regular,
+      color: "#FFFFFF",
+      fontSize: 11,
+      lineHeight: 13,
+      letterSpacing: -0.2,
+    },
+    resultInfo: {
+      flex: 1,
+    },
+    resultTitle: {
+      ...type.body,
+      fontFamily: fonts.body.medium,
+      fontSize: 15,
+      lineHeight: 20,
+      color: colors.primary,
+      marginBottom: 2,
+    },
+    resultAuthor: {
+      ...type.bodySmall,
+      color: colors.secondary,
+      marginBottom: 4,
+    },
+    resultMeta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    resultDuration: {
+      ...type.caption,
+      color: colors.tertiary,
+    },
+    dot: {
+      width: 3,
+      height: 3,
+      borderRadius: 1.5,
+      backgroundColor: colors.quaternary,
+      marginHorizontal: 4,
+    },
+    resultGenre: {
+      ...type.caption,
+      color: colors.tertiary,
+    },
+    playButtonSmall: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.primary,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingLeft: 2,
+      ...shadows.tile.native,
+    },
+    emptyResults: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingTop: 60,
+    },
+    emptyTitle: {
+      ...type.sectionLabel,
+      fontFamily: fonts.body.medium,
+      color: colors.primary,
+      marginBottom: 8,
+    },
+    emptySubtitle: {
+      ...type.bodySmall,
+      color: colors.secondary,
+      textAlign: "center",
+      paddingHorizontal: space.xl,
+    },
+    suggestionsContainer: {
+      flex: 1,
+      paddingHorizontal: space.xl,
+    },
+    suggestionsSection: {
+      marginBottom: space.xxl,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+      marginBottom: space.md,
+    },
+    sectionTitle: {
+      ...type.sectionLabel,
+      fontFamily: fonts.body.medium,
+      color: colors.primary,
+    },
+    popularTags: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.xs + 2,
+    },
+    popularTag: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: space.md,
+      paddingVertical: space.sm,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    popularTagText: {
+      ...type.bodySmall,
+      fontFamily: fonts.body.medium,
+      color: colors.primary,
+    },
+    categoryGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.xs + 2,
+      marginTop: space.sm,
+    },
+    categoryCard: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: space.md,
+      paddingVertical: space.sm + 2,
+      borderRadius: radius.lg,
+    },
+    categoryText: {
+      ...type.bodySmall,
+      fontFamily: fonts.body.medium,
+      color: colors.primaryInverse,
+    },
+  });
+}

@@ -466,17 +466,33 @@
     height: 28%;
   }
 
-  /* The blurred + plus-lighter spotlight halos are the single most
-     expensive thing the hero composites every frame. On phones the WebGL
-     aurora is already saturating the GPU; layering a 56px blur over a
-     65vw × 85vh box on top of a constantly-changing background causes
-     the freeze near the bottom of the hero. They're decorative — drop
-     them on small viewports. */
+  /* Keep the dark-mode lamp effect on mobile, but reduce its cost and avoid
+     blend modes that are unstable on iOS Safari's compositor. */
   [data-theme="dark"] .beam,
   [data-theme="dark"] .floorPool,
   [data-theme="dark"] .shadeGlow {
-    display: none;
-    animation: none;
+    mix-blend-mode: screen;
+  }
+
+  [data-theme="dark"] .beam {
+    width: 52vw;
+    height: 62vh;
+  }
+
+  [data-theme="dark"] .beamFlicker {
+    filter: blur(34px);
+  }
+
+  [data-theme="dark"] .floorPool {
+    top: 80vh;
+    width: 54vw;
+    height: 14vh;
+    filter: blur(20px);
+  }
+
+  [data-theme="dark"] .shadeGlow {
+    width: 220%;
+    filter: blur(10px);
   }
 }
 
@@ -487,8 +503,27 @@
   [data-theme="dark"] .beam,
   [data-theme="dark"] .floorPool,
   [data-theme="dark"] .shadeGlow {
-    display: none;
-    animation: none;
+    mix-blend-mode: screen;
+  }
+
+  /* Keep the startup flicker, skip the infinite loop on touch devices. */
+  [data-theme="dark"] .beam {
+    animation: beamFlickerOn 0.65s steps(1, end) 0.6s forwards;
+  }
+
+  [data-theme="dark"] .beamFlicker {
+    filter: blur(28px);
+  }
+
+  [data-theme="dark"] .floorPool {
+    width: 50vw;
+    height: 12vh;
+    filter: blur(18px);
+  }
+
+  [data-theme="dark"] .shadeGlow {
+    width: 205%;
+    filter: blur(8px);
   }
 
   /* The drop-shadows on the big colour discs each maintain a blurred

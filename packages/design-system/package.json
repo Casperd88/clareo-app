@@ -1,0 +1,52 @@
+{
+  "name": "@clareo/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared design tokens and theme primitives for Clareo web and app.",
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./colors": {
+      "types": "./src/colors.d.ts",
+      "default": "./src/colors.js"
+    },
+    "./typography": {
+      "types": "./src/typography.d.ts",
+      "default": "./src/typography.js"
+    },
+    "./spacing": {
+      "types": "./src/spacing.d.ts",
+      "default": "./src/spacing.js"
+    },
+    "./radii": {
+      "types": "./src/radii.d.ts",
+      "default": "./src/radii.js"
+    },
+    "./shadows": {
+      "types": "./src/shadows.d.ts",
+      "default": "./src/shadows.js"
+    },
+    "./motion": {
+      "types": "./src/motion.d.ts",
+      "default": "./src/motion.js"
+    },
+    "./theme": {
+      "types": "./src/theme.d.ts",
+      "default": "./src/theme.js"
+    },
+    "./tokens.css": "./dist/tokens.css"
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build:css": "node scripts/generate-css.mjs"
+  }
+}

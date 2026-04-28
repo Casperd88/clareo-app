@@ -7,19 +7,32 @@ function getApiUrl(): string {
   if (!__DEV__) {
     return "https://api.yourapp.com/api";
   }
-  
-  // Get the local IP from Expo's debugger host (works in Expo Go)
+
+  // Web running behind the local Cloudflare tunnel (e.g. app-local.tryclareo.com).
+  // Use the matching api-local.tryclareo.com tunnel rather than localhost so
+  // the request stays on HTTPS and the cookie/CORS setup matches production.
+  // Single-level subdomains are used so they're covered by Cloudflare's free
+  // Universal SSL on *.tryclareo.com (deep subdomains aren't).
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host.endsWith(".tryclareo.com") || host === "tryclareo.com") {
+      return "https://api-local.tryclareo.com/api";
+    }
+    // Plain web dev (localhost:8081) → talk to local backend directly.
+    return "http://localhost:3000/api";
+  }
+
+  // Native: get the local IP from Expo's debugger host (works in Expo Go).
   const debuggerHost = Constants.expoConfig?.hostUri?.split(":")[0];
-  
+
   if (debuggerHost) {
     return `http://${debuggerHost}:3000/api`;
   }
-  
-  // Fallback for simulator/emulator
+
   if (Platform.OS === "android") {
     return "http://10.0.2.2:3000/api";
   }
-  
+
   return "http://localhost:3000/api";
 }
 

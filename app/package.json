@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@callstack/liquid-glass": "^0.7.0",
+    "@clareo/design-system": "*",
     "@expo-google-fonts/instrument-serif": "^0.4.1",
     "@expo-google-fonts/inter": "^0.4.2",
+    "@react-native/virtualized-lists": "^0.81.5",
     "@react-navigation/bottom-tabs": "^7.15.6",
     "@react-navigation/native": "^7.1.34",
     "@reduxjs/toolkit": "^2.11.2",

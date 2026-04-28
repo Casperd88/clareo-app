@@ -4,4 +4,17 @@ credentials-file: /Users/casperdeseyne/.cloudflared/869665ca-df7d-4c44-a852-d736
 ingress:
   - hostname: local.tryclareo.com
     service: http://127.0.0.1:5173
+    originRequest:
+      noTLSVerify: true
+      http2Origin: false
+  - hostname: app-local.tryclareo.com
+    service: http://127.0.0.1:8081
+    originRequest:
+      noTLSVerify: true
+      http2Origin: false
+  - hostname: api-local.tryclareo.com
+    service: http://127.0.0.1:3000
+    originRequest:
+      noTLSVerify: true
+      http2Origin: false
   - service: http_status:404

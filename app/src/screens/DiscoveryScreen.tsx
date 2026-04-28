@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  Dimensions,
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
@@ -27,81 +26,69 @@ import type { Audiobook } from "../types";
 import type { DiscoverySection, DiscoveryAudiobook } from "../api";
 import { setAudiobook, play } from "../store/playerSlice";
 import { Logo } from "../components/Logo";
-import { Colors } from "../constants/colors";
-import { Fonts } from "../constants/typography";
+import { useTheme, pickAccent } from "../theme";
+import type { AppTheme } from "../theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = 150;
-const HERO_CARD_HEIGHT = 180;
-
-function getBookColor(title: string): string {
-  const colors = [
-    "#1a1a2e", "#16213e", "#0f3460", "#533483",
-    "#4a1942", "#2d132c", "#1e3a5f", "#3d2645",
-    "#1c1c1c", "#2d3436", "#192a56", "#40407a",
-  ];
-  const index = title.charCodeAt(0) % colors.length;
-  return colors[index];
-}
+const CARD_WIDTH = 152;
+const HERO_CARD_HEIGHT = 220;
 
 interface ContentCardProps {
   audiobook: DiscoveryAudiobook;
   onPlay: () => void;
   showTrending?: boolean;
+  theme: AppTheme;
+  styles: ReturnType<typeof createStyles>;
 }
 
 const ContentCard = memo(function ContentCard({
   audiobook,
   onPlay,
   showTrending,
+  theme,
+  styles,
 }: ContentCardProps) {
   const durationMinutes = Math.round(audiobook.totalDuration / 60);
-  const bgColor = getBookColor(audiobook.title);
+  const accent = pickAccent(audiobook.id ?? audiobook.title);
   const coverUrl = audiobook.coverImageUrl;
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onPlay}
-      activeOpacity={0.85}
-    >
+    <TouchableOpacity style={styles.card} onPress={onPlay} activeOpacity={0.85}>
       {coverUrl ? (
         <View style={styles.cardCoverContainer}>
-          <Image 
-            source={{ uri: coverUrl }} 
-            style={styles.cardCoverImage}
-            resizeMode="cover"
-          />
+          <Image source={{ uri: coverUrl }} style={styles.cardCoverImage} resizeMode="cover" />
           {showTrending && (
             <View style={styles.trendingBadge}>
-              <Flame size={10} color="#fff" fill="#fff" />
+              <Flame size={10} color={theme.colors.primaryInverse} fill={theme.colors.primaryInverse} />
             </View>
           )}
           <View style={styles.playHintOverlay}>
-            <Play size={16} color="#fff" fill="#fff" />
+            <Play size={14} color="#fff" fill="#fff" />
           </View>
         </View>
       ) : (
-        <View style={[styles.cardCover, { backgroundColor: bgColor }]}>
-          <Text style={styles.coverTitle} numberOfLines={3}>
+        <View style={[styles.cardCover, { backgroundColor: accent }]}>
+          <Text style={styles.coverEyebrow} numberOfLines={1}>
+            {audiobook.author?.name?.split(" ").slice(-1)[0] ?? "Clareo"}
+          </Text>
+          <Text style={styles.coverTitle} numberOfLines={4}>
             {audiobook.title}
           </Text>
           {showTrending && (
             <View style={styles.trendingBadge}>
-              <Flame size={10} color="#fff" fill="#fff" />
+              <Flame size={10} color={theme.colors.primaryInverse} fill={theme.colors.primaryInverse} />
             </View>
           )}
-          <View style={styles.playHint}>
-            <Play size={16} color="#fff" fill="#fff" />
-          </View>
         </View>
       )}
       <View style={styles.cardInfo}>
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {audiobook.title}
+        </Text>
         <Text style={styles.cardAuthor} numberOfLines={1}>
           {audiobook.author?.name}
         </Text>
         <View style={styles.cardMeta}>
-          <Clock size={11} color="#999" />
+          <Clock size={11} color={theme.colors.tertiary} />
           <Text style={styles.cardDuration}>{durationMinutes} min</Text>
         </View>
       </View>
@@ -112,46 +99,50 @@ const ContentCard = memo(function ContentCard({
 interface HeroCardProps {
   audiobook: DiscoveryAudiobook;
   onPlay: () => void;
+  eyebrow: string;
   title: string;
-  subtitle: string;
   progress?: number;
+  theme: AppTheme;
+  styles: ReturnType<typeof createStyles>;
 }
 
 const HeroCard = memo(function HeroCard({
   audiobook,
   onPlay,
+  eyebrow,
   title,
-  subtitle,
   progress,
+  theme,
+  styles,
 }: HeroCardProps) {
   const totalMinutes = Math.round(audiobook.totalDuration / 60);
-  const bgColor = getBookColor(audiobook.title);
+  const accent = pickAccent(audiobook.id ?? audiobook.title);
   const coverUrl = audiobook.coverImageUrl;
-  
-  // Calculate remaining time when there's progress
+
   const hasProgress = typeof progress === "number" && progress > 0;
-  const remainingMinutes = hasProgress 
-    ? Math.round((1 - progress) * audiobook.totalDuration / 60)
+  const remainingMinutes = hasProgress
+    ? Math.round(((1 - progress) * audiobook.totalDuration) / 60)
     : totalMinutes;
   const durationText = hasProgress ? `${remainingMinutes} min left` : `${totalMinutes} min`;
 
-  const heroContent = (
+  const heroBody = (
     <>
       <View style={styles.heroContent}>
         <View style={styles.heroTextContent}>
+          <Text style={styles.heroEyebrow}>{eyebrow}</Text>
           <Text style={styles.heroBookTitle} numberOfLines={2}>
             {audiobook.title}
           </Text>
           <Text style={styles.heroAuthor} numberOfLines={1}>
             {audiobook.author?.name}
           </Text>
-          <View style={styles.heroDuration}>
-            <Clock size={14} color="rgba(255,255,255,0.8)" />
+          <View style={styles.heroMetaRow}>
+            <Clock size={13} color="rgba(255,255,255,0.85)" />
             <Text style={styles.heroDurationText}>{durationText}</Text>
           </View>
         </View>
-        <View style={[styles.heroPlayButton, coverUrl && { backgroundColor: 'rgba(255,255,255,0.95)' }]}>
-          <Play size={28} color={coverUrl ? "#000" : bgColor} fill={coverUrl ? "#000" : bgColor} />
+        <View style={styles.heroPlayButton}>
+          <Play size={26} color={theme.colors.primary} fill={theme.colors.primary} />
         </View>
       </View>
       {hasProgress && (
@@ -166,48 +157,52 @@ const HeroCard = memo(function HeroCard({
 
   return (
     <View style={styles.heroSection}>
-      <Text style={styles.heroTitle}>{title}</Text>
-      <Text style={styles.heroSubtitle}>{subtitle}</Text>
-      <TouchableOpacity
-        style={styles.heroCard}
-        onPress={onPlay}
-        activeOpacity={0.9}
-      >
+      <Text style={styles.heroSectionLabel}>{title}</Text>
+      <TouchableOpacity style={styles.heroCard} onPress={onPlay} activeOpacity={0.92}>
         {coverUrl ? (
           <ImageBackground
             source={{ uri: coverUrl }}
-            style={[styles.heroImageBg, { backgroundColor: bgColor }]}
+            style={[styles.heroImageBg, { backgroundColor: accent }]}
             imageStyle={styles.heroImageStyle}
             resizeMode="cover"
           >
-            <View style={styles.heroOverlay}>
-              {heroContent}
-            </View>
+            <View style={styles.heroOverlay}>{heroBody}</View>
           </ImageBackground>
         ) : (
-          <View style={[styles.heroColorBg, { backgroundColor: bgColor }]}>
-            {heroContent}
-          </View>
+          <View style={[styles.heroColorBg, { backgroundColor: accent }]}>{heroBody}</View>
         )}
       </TouchableOpacity>
     </View>
   );
 });
 
-function SectionHeader({ title, subtitle, icon }: { title: string; subtitle?: string; icon?: React.ReactNode }) {
+function SectionHeader({
+  title,
+  subtitle,
+  icon,
+  styles,
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  styles: ReturnType<typeof createStyles>;
+}) {
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionTitleRow}>
         {icon}
         <Text style={styles.sectionTitle}>{title}</Text>
       </View>
-      {subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
+      {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
     </View>
   );
 }
 
 export function DiscoveryScreen() {
   const dispatch = useAppDispatch();
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   const onboardingData = useAppSelector((state) => state.onboarding.data);
   const currentAudiobook = useAppSelector((state) => state.player.currentAudiobook);
   const playerPosition = useAppSelector((state) => state.player.position);
@@ -221,15 +216,17 @@ export function DiscoveryScreen() {
   const lastPlayedItem = useMemo(() => {
     if (!libraryData?.library) return null;
     const inProgress = libraryData.library.find(
-      (item) => item.playbackState && item.playbackState.currentPosition > 0 && !item.playbackState.isCompleted
+      (item) =>
+        item.playbackState &&
+        item.playbackState.currentPosition > 0 &&
+        !item.playbackState.isCompleted,
     );
     return inProgress || null;
   }, [libraryData?.library]);
 
-  // Fetch signed URLs for continue learning hero card
   const { data: continueListeningUrls } = useSignedUrls(
-    lastPlayedItem?.audiobook.id || '',
-    !!lastPlayedItem
+    lastPlayedItem?.audiobook.id || "",
+    !!lastPlayedItem,
   );
 
   const handlePlay = useCallback(
@@ -241,7 +238,7 @@ export function DiscoveryScreen() {
         },
       });
     },
-    [dispatch, addToLibrary]
+    [dispatch, addToLibrary],
   );
 
   const renderSection = useCallback(
@@ -251,9 +248,19 @@ export function DiscoveryScreen() {
       return (
         <View key={section.id} style={styles.section}>
           <SectionHeader
-            title={isTrending ? "Trending Now" : section.title}
+            title={isTrending ? "Trending now" : section.title}
             subtitle={section.subtitle}
-            icon={isTrending ? <Flame size={18} color={Colors.accent} fill={Colors.accent} style={{ marginRight: 6 }} /> : undefined}
+            icon={
+              isTrending ? (
+                <Flame
+                  size={16}
+                  color={theme.colors.accentWarm}
+                  fill={theme.colors.accentWarm}
+                  style={{ marginRight: 6 }}
+                />
+              ) : undefined
+            }
+            styles={styles}
           />
           <FlatList
             horizontal
@@ -266,22 +273,28 @@ export function DiscoveryScreen() {
                 audiobook={item}
                 onPlay={() => handlePlay(item)}
                 showTrending={isTrending}
+                theme={theme}
+                styles={styles}
               />
             )}
-            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            ItemSeparatorComponent={() => <View style={{ width: theme.space.md }} />}
           />
         </View>
       );
     },
-    [handlePlay]
+    [handlePlay, theme, styles],
   );
 
   if (isLoading && !discoveryData) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Logo width={48} color="#000" />
-          <ActivityIndicator size="large" color="#000" style={{ marginTop: 20 }} />
+          <Logo width={48} color={theme.colors.primary} />
+          <ActivityIndicator
+            size="small"
+            color={theme.colors.primary}
+            style={{ marginTop: theme.space.lg }}
+          />
         </View>
       </SafeAreaView>
     );
@@ -290,12 +303,14 @@ export function DiscoveryScreen() {
   const displayName = onboardingData.displayName || "there";
   const forYouSection = discoveryData?.sections.find((s) => s.id === "for-you");
   const otherSections = discoveryData?.sections.filter((s) => s.id !== "for-you") || [];
-  
-  const heroAudiobook: DiscoveryAudiobook | undefined = lastPlayedItem?.audiobook 
-    ? { ...lastPlayedItem.audiobook, coverImageUrl: continueListeningUrls?.urls?.coverImage || null }
+
+  const heroAudiobook: DiscoveryAudiobook | undefined = lastPlayedItem?.audiobook
+    ? {
+        ...lastPlayedItem.audiobook,
+        coverImageUrl: continueListeningUrls?.urls?.coverImage || null,
+      }
     : forYouSection?.audiobooks[0];
-  
-  // Use real-time player position if this book is currently loaded, otherwise use cached library data
+
   const isCurrentlyPlaying = currentAudiobook?.id === lastPlayedItem?.audiobook.id;
   const heroProgress = lastPlayedItem?.playbackState
     ? isCurrentlyPlaying && playerDuration > 0
@@ -303,43 +318,48 @@ export function DiscoveryScreen() {
       : lastPlayedItem.playbackState.currentPosition / lastPlayedItem.audiobook.totalDuration
     : undefined;
 
+  const hasGoalData = !!stats && (stats.completedThisMonth > 0 || stats.inProgressCount > 0);
+  const goalReached = !!stats && stats.completedThisMonth >= stats.monthlyGoal;
+  const goalProgressColor = goalReached ? theme.colors.success : theme.colors.primary;
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#000" />
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={theme.colors.primary}
+          />
         }
       >
         <View style={styles.header}>
+          <Text style={styles.eyebrow}>Today, on Clareo</Text>
           <Text style={styles.greeting}>
-            {discoveryData?.greeting || `Good morning, ${displayName}`}
+            {discoveryData?.greeting || `Good morning, ${displayName}.`}
           </Text>
-          {/* Goal progress: Show when user has data, hide for brand new users */}
-          {stats && (stats.completedThisMonth > 0 || stats.inProgressCount > 0) ? (
+
+          {hasGoalData && stats ? (
             <View style={styles.goalBanner}>
               <View style={styles.goalBannerLeft}>
                 <View style={styles.goalRing}>
                   <View style={styles.goalRingTrack} />
-                  <View 
-                    style={[
-                      styles.goalRingProgress,
-                      { 
-                        transform: [{ rotate: '-90deg' }],
-                      }
-                    ]} 
-                  >
-                    <View 
+                  <View style={[styles.goalRingProgress, { transform: [{ rotate: "-90deg" }] }]}>
+                    <View
                       style={[
                         styles.goalRingFill,
-                        { 
-                          borderTopColor: stats.completedThisMonth >= stats.monthlyGoal ? '#10b981' : '#000',
-                          borderRightColor: stats.progressPercent >= 25 ? (stats.completedThisMonth >= stats.monthlyGoal ? '#10b981' : '#000') : 'transparent',
-                          borderBottomColor: stats.progressPercent >= 50 ? (stats.completedThisMonth >= stats.monthlyGoal ? '#10b981' : '#000') : 'transparent',
-                          borderLeftColor: stats.progressPercent >= 75 ? (stats.completedThisMonth >= stats.monthlyGoal ? '#10b981' : '#000') : 'transparent',
-                        }
-                      ]} 
+                        {
+                          borderTopColor: goalProgressColor,
+                          borderRightColor:
+                            stats.progressPercent >= 25 ? goalProgressColor : "transparent",
+                          borderBottomColor:
+                            stats.progressPercent >= 50 ? goalProgressColor : "transparent",
+                          borderLeftColor:
+                            stats.progressPercent >= 75 ? goalProgressColor : "transparent",
+                        },
+                      ]}
                     />
                   </View>
                   <View style={styles.goalRingCenter}>
@@ -349,21 +369,21 @@ export function DiscoveryScreen() {
               </View>
               <View style={styles.goalBannerRight}>
                 <Text style={styles.goalBannerTitle}>
-                  {stats.completedThisMonth >= stats.monthlyGoal 
-                    ? "Goal reached! 🎉" 
+                  {goalReached
+                    ? "Goal reached"
                     : `${stats.monthlyGoal - stats.completedThisMonth} more to go`}
                 </Text>
                 <Text style={styles.goalBannerSubtitle}>
                   {stats.completedThisMonth} of {stats.monthlyGoal} books this month
                 </Text>
-                {stats.partialProgress > 0 && stats.completedThisMonth < stats.monthlyGoal && (
+                {stats.partialProgress > 0 && !goalReached && (
                   <View style={styles.goalPartialRow}>
                     <View style={styles.goalPartialBar}>
-                      <View 
+                      <View
                         style={[
-                          styles.goalPartialFill, 
-                          { width: `${Math.min(stats.partialProgress * 100, 100)}%` }
-                        ]} 
+                          styles.goalPartialFill,
+                          { width: `${Math.min(stats.partialProgress * 100, 100)}%` },
+                        ]}
                       />
                     </View>
                     <Text style={styles.goalPartialText}>
@@ -375,7 +395,7 @@ export function DiscoveryScreen() {
             </View>
           ) : discoveryData?.meta?.isNewUser ? (
             <Text style={styles.welcomeSubtitle}>
-              Start listening to begin your learning journey
+              Start listening to begin your reading journey.
             </Text>
           ) : null}
         </View>
@@ -383,13 +403,14 @@ export function DiscoveryScreen() {
         {heroAudiobook && (
           <HeroCard
             audiobook={heroAudiobook}
-            onPlay={() => handlePlay(
-              heroAudiobook, 
-              lastPlayedItem?.playbackState?.currentPosition
-            )}
-            title={lastPlayedItem ? "Continue Learning" : "Start Here"}
-            subtitle={lastPlayedItem ? "Pick up where you left off" : "Recommended for you"}
+            onPlay={() =>
+              handlePlay(heroAudiobook, lastPlayedItem?.playbackState?.currentPosition)
+            }
+            eyebrow={lastPlayedItem ? "Currently listening" : "Editor’s pick"}
+            title={lastPlayedItem ? "Continue where you left off" : "A title for today"}
             progress={heroProgress}
+            theme={theme}
+            styles={styles}
           />
         )}
 
@@ -397,7 +418,7 @@ export function DiscoveryScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            {discoveryData?.totalBooks || 0} titles available
+            {discoveryData?.totalBooks || 0} titles in the library
           </Text>
         </View>
       </ScrollView>
@@ -405,331 +426,353 @@ export function DiscoveryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  scrollContent: {
-    paddingBottom: 140,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  greeting: {
-    fontSize: 32,
-    fontFamily: Fonts.serifItalic,
-    color: "#000",
-    letterSpacing: -0.3,
-  },
-  goalBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f8f8f8",
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 16,
-    gap: 14,
-  },
-  goalBannerLeft: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  goalRing: {
-    width: 48,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  goalRingTrack: {
-    position: "absolute",
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 4,
-    borderColor: "#e5e5e5",
-  },
-  goalRingProgress: {
-    position: "absolute",
-    width: 48,
-    height: 48,
-  },
-  goalRingFill: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 4,
-    borderColor: "transparent",
-  },
-  goalRingCenter: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  goalRingNumber: {
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-    color: "#000",
-  },
-  goalBannerRight: {
-    flex: 1,
-  },
-  goalBannerTitle: {
-    fontSize: 15,
-    fontFamily: Fonts.semiBold,
-    color: "#000",
-    marginBottom: 2,
-  },
-  goalBannerSubtitle: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: "#666",
-  },
-  goalPartialRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 8,
-    gap: 8,
-  },
-  goalPartialBar: {
-    flex: 1,
-    height: 4,
-    backgroundColor: "#e5e5e5",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  goalPartialFill: {
-    height: "100%",
-    backgroundColor: "#10b981",
-    borderRadius: 2,
-  },
-  goalPartialText: {
-    fontSize: 11,
-    fontFamily: Fonts.medium,
-    color: "#10b981",
-  },
-  welcomeSubtitle: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: "#888",
-    marginTop: 4,
-  },
-  heroSection: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  heroTitle: {
-    fontSize: 14,
-    fontFamily: Fonts.medium,
-    color: "#000",
-    marginBottom: 2,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: "#888",
-    marginBottom: 14,
-  },
-  heroCard: {
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  heroImageBg: {
-    minHeight: HERO_CARD_HEIGHT,
-  },
-  heroImageStyle: {
-    borderRadius: 16,
-  },
-  heroOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-  },
-  heroColorBg: {
-    minHeight: HERO_CARD_HEIGHT,
-  },
-  heroContent: {
-    flexDirection: "row",
-    padding: 20,
-    minHeight: HERO_CARD_HEIGHT,
-    alignItems: "flex-end",
-  },
-  heroTextContent: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  heroBookTitle: {
-    fontSize: 22,
-    fontFamily: Fonts.bold,
-    color: "#fff",
-    marginBottom: 8,
-    lineHeight: 28,
-  },
-  heroAuthor: {
-    fontSize: 15,
-    fontFamily: Fonts.regular,
-    color: "rgba(255,255,255,0.8)",
-    marginBottom: 12,
-  },
-  heroDuration: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  heroDurationText: {
-    fontSize: 14,
-    fontFamily: Fonts.medium,
-    color: "rgba(255,255,255,0.8)",
-  },
-  heroPlayButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    alignSelf: "flex-end",
-    marginLeft: 16,
-    paddingLeft: 3,
-  },
-  heroProgressContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  heroProgress: {
-    height: 4,
-    backgroundColor: "rgba(255,255,255,0.3)",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  heroProgressFill: {
-    height: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 2,
-  },
-  section: {
-    marginTop: 32,
-  },
-  sectionHeader: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  sectionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-    color: "#000",
-    letterSpacing: -0.2,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: "#888",
-    marginTop: 3,
-  },
-  horizontalList: {
-    paddingHorizontal: 20,
-  },
-  card: {
-    width: CARD_WIDTH,
-  },
-  cardCoverContainer: {
-    width: CARD_WIDTH,
-    height: CARD_WIDTH,
-    borderRadius: 12,
-    overflow: "hidden",
-    marginBottom: 12,
-  },
-  cardCoverImage: {
-    width: "100%",
-    height: "100%",
-  },
-  playHintOverlay: {
-    position: "absolute",
-    bottom: 10,
-    left: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingLeft: 2,
-  },
-  cardCover: {
-    width: CARD_WIDTH,
-    height: CARD_WIDTH,
-    borderRadius: 12,
-    padding: 14,
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  coverTitle: {
-    fontSize: 16,
-    fontFamily: Fonts.bold,
-    color: "#fff",
-    lineHeight: 20,
-  },
-  trendingBadge: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: Colors.accent,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  playHint: {
-    alignSelf: "flex-start",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingLeft: 2,
-  },
-  cardInfo: {
-    gap: 2,
-  },
-  cardAuthor: {
-    fontSize: 13,
-    fontFamily: Fonts.medium,
-    color: "#000",
-  },
-  cardMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  cardDuration: {
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    color: "#888",
-  },
-  footer: {
-    paddingVertical: 32,
-    alignItems: "center",
-  },
-  footerText: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: "#ccc",
-  },
-});
+function createStyles(theme: AppTheme) {
+  const { colors, type, space, radius, shadows, fonts } = theme;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    scrollContent: {
+      paddingBottom: 140,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    header: {
+      paddingHorizontal: space.lg,
+      paddingTop: space.md,
+      paddingBottom: space.xs,
+    },
+    eyebrow: {
+      ...type.eyebrow,
+      color: colors.tertiary,
+      marginBottom: space.xs,
+    },
+    greeting: {
+      fontFamily: fonts.display.italic,
+      fontSize: 36,
+      lineHeight: 40,
+      color: colors.primary,
+      letterSpacing: -0.6,
+      fontStyle: "italic",
+    },
+    welcomeSubtitle: {
+      ...type.body,
+      color: colors.secondary,
+      marginTop: space.sm,
+    },
+    goalBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: space.md,
+      marginTop: space.lg,
+      gap: space.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...shadows.tile.native,
+    },
+    goalBannerLeft: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    goalRing: {
+      width: 48,
+      height: 48,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    goalRingTrack: {
+      position: "absolute",
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 3,
+      borderColor: colors.surfaceMuted,
+    },
+    goalRingProgress: {
+      position: "absolute",
+      width: 48,
+      height: 48,
+    },
+    goalRingFill: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 3,
+      borderColor: "transparent",
+    },
+    goalRingCenter: {
+      position: "absolute",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    goalRingNumber: {
+      fontFamily: fonts.body.medium,
+      fontSize: 17,
+      color: colors.primary,
+    },
+    goalBannerRight: {
+      flex: 1,
+    },
+    goalBannerTitle: {
+      ...type.sectionLabel,
+      color: colors.primary,
+      marginBottom: 2,
+    },
+    goalBannerSubtitle: {
+      ...type.bodySmall,
+      color: colors.secondary,
+    },
+    goalPartialRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: space.xs + 2,
+      gap: space.xs,
+    },
+    goalPartialBar: {
+      flex: 1,
+      height: 4,
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 2,
+      overflow: "hidden",
+    },
+    goalPartialFill: {
+      height: "100%",
+      backgroundColor: colors.success,
+      borderRadius: 2,
+    },
+    goalPartialText: {
+      fontSize: 11,
+      fontFamily: fonts.body.medium,
+      color: colors.success,
+    },
+    heroSection: {
+      paddingHorizontal: space.lg,
+      marginTop: space.xl,
+      marginBottom: space.xs,
+    },
+    heroSectionLabel: {
+      ...type.eyebrow,
+      color: colors.tertiary,
+      marginBottom: space.sm,
+    },
+    heroCard: {
+      borderRadius: radius.xxl,
+      overflow: "hidden",
+      ...shadows.card.native,
+    },
+    heroImageBg: {
+      minHeight: HERO_CARD_HEIGHT,
+    },
+    heroImageStyle: {
+      borderRadius: radius.xxl,
+    },
+    heroOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(15, 17, 22, 0.45)",
+    },
+    heroColorBg: {
+      minHeight: HERO_CARD_HEIGHT,
+    },
+    heroContent: {
+      flexDirection: "row",
+      padding: space.xl,
+      minHeight: HERO_CARD_HEIGHT,
+      alignItems: "flex-end",
+    },
+    heroTextContent: {
+      flex: 1,
+      justifyContent: "flex-end",
+    },
+    heroEyebrow: {
+      fontFamily: fonts.body.medium,
+      fontSize: 11,
+      letterSpacing: 1.6,
+      textTransform: "uppercase",
+      color: "rgba(255,255,255,0.78)",
+      marginBottom: space.sm,
+    },
+    heroBookTitle: {
+      fontFamily: fonts.display.regular,
+      fontSize: 28,
+      lineHeight: 32,
+      color: "#FFFFFF",
+      marginBottom: space.xs,
+      letterSpacing: -0.4,
+    },
+    heroAuthor: {
+      fontFamily: fonts.display.italic,
+      fontStyle: "italic",
+      fontSize: 16,
+      lineHeight: 22,
+      color: "rgba(255,255,255,0.82)",
+      marginBottom: space.sm + 2,
+    },
+    heroMetaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    heroDurationText: {
+      fontFamily: fonts.body.regular,
+      fontSize: 13,
+      color: "rgba(255,255,255,0.85)",
+    },
+    heroPlayButton: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: "#FFFFFF",
+      justifyContent: "center",
+      alignItems: "center",
+      alignSelf: "flex-end",
+      marginLeft: space.md,
+      paddingLeft: 3,
+      ...shadows.floating.native,
+    },
+    heroProgressContainer: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: space.md,
+      paddingBottom: space.sm,
+    },
+    heroProgress: {
+      height: 3,
+      backgroundColor: "rgba(255,255,255,0.25)",
+      borderRadius: 2,
+      overflow: "hidden",
+    },
+    heroProgressFill: {
+      height: "100%",
+      backgroundColor: "#FFFFFF",
+      borderRadius: 2,
+    },
+    section: {
+      marginTop: space.xxl,
+    },
+    sectionHeader: {
+      paddingHorizontal: space.lg,
+      marginBottom: space.md,
+    },
+    sectionTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    sectionTitle: {
+      ...type.title,
+      fontSize: 22,
+      lineHeight: 26,
+      color: colors.primary,
+      letterSpacing: -0.4,
+    },
+    sectionSubtitle: {
+      ...type.bodySmall,
+      color: colors.secondary,
+      marginTop: 4,
+    },
+    horizontalList: {
+      paddingHorizontal: space.lg,
+    },
+    card: {
+      width: CARD_WIDTH,
+    },
+    cardCoverContainer: {
+      width: CARD_WIDTH,
+      height: CARD_WIDTH * 1.05,
+      borderRadius: radius.lg,
+      overflow: "hidden",
+      marginBottom: space.sm,
+      ...shadows.tile.native,
+    },
+    cardCoverImage: {
+      width: "100%",
+      height: "100%",
+    },
+    playHintOverlay: {
+      position: "absolute",
+      bottom: 10,
+      left: 10,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingLeft: 2,
+    },
+    cardCover: {
+      width: CARD_WIDTH,
+      height: CARD_WIDTH * 1.05,
+      borderRadius: radius.lg,
+      padding: space.md,
+      justifyContent: "space-between",
+      marginBottom: space.sm,
+      ...shadows.tile.native,
+    },
+    coverEyebrow: {
+      fontFamily: fonts.body.medium,
+      fontSize: 10,
+      letterSpacing: 1.4,
+      textTransform: "uppercase",
+      color: "rgba(255,255,255,0.78)",
+    },
+    coverTitle: {
+      fontFamily: fonts.display.regular,
+      fontSize: 18,
+      lineHeight: 22,
+      color: "#FFFFFF",
+      letterSpacing: -0.2,
+    },
+    trendingBadge: {
+      position: "absolute",
+      top: 10,
+      right: 10,
+      backgroundColor: colors.accentWarm,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    cardInfo: {
+      gap: 2,
+    },
+    cardTitle: {
+      ...type.body,
+      fontSize: 14,
+      lineHeight: 18,
+      color: colors.primary,
+      letterSpacing: -0.1,
+    },
+    cardAuthor: {
+      ...type.bodySmall,
+      color: colors.secondary,
+    },
+    cardMeta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 2,
+    },
+    cardDuration: {
+      ...type.caption,
+      color: colors.tertiary,
+    },
+    footer: {
+      paddingVertical: space.xxl,
+      alignItems: "center",
+    },
+    footerText: {
+      ...type.caption,
+      color: colors.tertiary,
+      letterSpacing: 0.4,
+    },
+  });
+}

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Fonts } from '../constants';
+import { useTheme } from '../theme';
+import type { AppTheme } from '../theme';
 
 interface TrackInfoProps {
   title: string;
@@ -8,6 +9,8 @@ interface TrackInfoProps {
 }
 
 export function TrackInfo({ title, author }: TrackInfoProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
@@ -16,23 +19,28 @@ export function TrackInfo({ title, author }: TrackInfoProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'flex-start',
-  },
-  title: {
-    fontSize: 24,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
-    marginBottom: 8,
-    lineHeight: 29,
-    color: Colors.primary,
-  },
-  author: {
-    fontSize: 16,
-    color: Colors.secondary,
-    opacity: 0.5,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
-  },
-});
+function createStyles(theme: AppTheme) {
+  const { fonts } = theme;
+  return StyleSheet.create({
+    container: {
+      alignItems: 'flex-start',
+    },
+    // The player screen always renders over a dark shader, so type
+    // colors are pinned to white rather than themed.
+    title: {
+      fontFamily: fonts.display.regular,
+      fontSize: 26,
+      lineHeight: 30,
+      letterSpacing: -0.4,
+      color: '#FFFFFF',
+      marginBottom: 6,
+    },
+    author: {
+      fontFamily: fonts.display.italic,
+      fontStyle: 'italic',
+      fontSize: 16,
+      lineHeight: 22,
+      color: 'rgba(255,255,255,0.78)',
+    },
+  });
+}

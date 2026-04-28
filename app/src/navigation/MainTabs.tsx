@@ -1,24 +1,22 @@
-import React, { useCallback } from "react";
+import React, { useMemo } from "react";
 import { View, StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import {
-  Compass,
-  Search,
-  BookOpen,
-  User,
-} from "lucide-react-native";
+import { Compass, Search, BookOpen, User } from "lucide-react-native";
 import { DiscoveryScreen } from "../screens/DiscoveryScreen";
 import { SearchScreen } from "../screens/SearchScreen";
 import { MyLibraryScreen } from "../screens/MyLibraryScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { MiniPlayer } from "../components/MiniPlayer";
 import { useAppSelector } from "../hooks";
-import { Fonts } from "../constants/typography";
+import { useTheme } from "../theme";
+import type { AppTheme } from "../theme";
 
 const Tab = createBottomTabNavigator();
 
 export function MainTabs({ onExpandPlayer }: { onExpandPlayer: () => void }) {
   const currentAudiobook = useAppSelector((state) => state.player.currentAudiobook);
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   return (
     <View style={styles.container}>
@@ -29,8 +27,8 @@ export function MainTabs({ onExpandPlayer }: { onExpandPlayer: () => void }) {
             styles.tabBar,
             currentAudiobook ? styles.tabBarWithPlayer : null,
           ],
-          tabBarActiveTintColor: "#000",
-          tabBarInactiveTintColor: "#999",
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.tertiary,
           tabBarLabelStyle: styles.tabLabel,
           tabBarItemStyle: styles.tabItem,
         }}
@@ -41,11 +39,7 @@ export function MainTabs({ onExpandPlayer }: { onExpandPlayer: () => void }) {
           options={{
             tabBarIcon: ({ color, focused }) => (
               <View style={focused ? styles.iconActive : undefined}>
-                <Compass
-                  size={24}
-                  color={color}
-                  strokeWidth={focused ? 2 : 1.5}
-                />
+                <Compass size={22} color={color} strokeWidth={focused ? 2 : 1.5} />
               </View>
             ),
           }}
@@ -56,11 +50,7 @@ export function MainTabs({ onExpandPlayer }: { onExpandPlayer: () => void }) {
           options={{
             tabBarIcon: ({ color, focused }) => (
               <View style={focused ? styles.iconActive : undefined}>
-                <Search
-                  size={24}
-                  color={color}
-                  strokeWidth={focused ? 2 : 1.5}
-                />
+                <Search size={22} color={color} strokeWidth={focused ? 2 : 1.5} />
               </View>
             ),
           }}
@@ -71,11 +61,7 @@ export function MainTabs({ onExpandPlayer }: { onExpandPlayer: () => void }) {
           options={{
             tabBarIcon: ({ color, focused }) => (
               <View style={focused ? styles.iconActive : undefined}>
-                <BookOpen
-                  size={24}
-                  color={color}
-                  strokeWidth={focused ? 2 : 1.5}
-                />
+                <BookOpen size={22} color={color} strokeWidth={focused ? 2 : 1.5} />
               </View>
             ),
           }}
@@ -86,11 +72,7 @@ export function MainTabs({ onExpandPlayer }: { onExpandPlayer: () => void }) {
           options={{
             tabBarIcon: ({ color, focused }) => (
               <View style={focused ? styles.iconActive : undefined}>
-                <User
-                  size={24}
-                  color={color}
-                  strokeWidth={focused ? 2 : 1.5}
-                />
+                <User size={22} color={color} strokeWidth={focused ? 2 : 1.5} />
               </View>
             ),
           }}
@@ -101,30 +83,34 @@ export function MainTabs({ onExpandPlayer }: { onExpandPlayer: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  tabBar: {
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-    height: 85,
-    paddingTop: 8,
-    paddingBottom: 28,
-  },
-  tabBarWithPlayer: {
-    marginBottom: 0,
-  },
-  tabLabel: {
-    fontFamily: Fonts.medium,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  tabItem: {
-    paddingTop: 4,
-  },
-  iconActive: {
-    transform: [{ scale: 1.05 }],
-  },
-});
+function createStyles(theme: AppTheme) {
+  const { colors, fonts } = theme;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    tabBar: {
+      backgroundColor: colors.bgRaised,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      height: 85,
+      paddingTop: 8,
+      paddingBottom: 28,
+    },
+    tabBarWithPlayer: {
+      marginBottom: 0,
+    },
+    tabLabel: {
+      fontFamily: fonts.body.medium,
+      fontSize: 11,
+      letterSpacing: 0.2,
+      marginTop: 4,
+    },
+    tabItem: {
+      paddingTop: 4,
+    },
+    iconActive: {
+      transform: [{ scale: 1.05 }],
+    },
+  });
+}

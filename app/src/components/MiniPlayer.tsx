@@ -1,33 +1,35 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   Image,
   ActivityIndicator,
 } from "react-native";
 import { Play, Pause, X } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAppSelector, useAppDispatch, useSignedUrls } from "../hooks";
 import { clearPlayer, togglePlayback } from "../store/playerSlice";
-import { Fonts } from "../constants/typography";
-import { Colors } from "../constants/colors";
+import { useTheme, pickAccent } from "../theme";
+import type { AppTheme } from "../theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const MINI_PLAYER_HEIGHT = 64;
 const TAB_BAR_HEIGHT = 85;
 
 export function MiniPlayer({ onExpand }: { onExpand: () => void }) {
   const dispatch = useAppDispatch();
-  const { currentAudiobook, signedUrls, audiobookId, status, position, duration } = useAppSelector((state) => state.player);
-  
-  // Fetch signed URLs for cover image independently
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  const { currentAudiobook, signedUrls, audiobookId, status, position, duration } =
+    useAppSelector((state) => state.player);
+
   const { data: fetchedUrls } = useSignedUrls(
-    currentAudiobook?.id || '',
-    !!currentAudiobook
+    currentAudiobook?.id || "",
+    !!currentAudiobook,
   );
-  
+
   const isPlaying = status === "playing";
   const isLoading = status === "loading";
   const progress = duration > 0 ? position / duration : 0;
@@ -46,30 +48,32 @@ export function MiniPlayer({ onExpand }: { onExpand: () => void }) {
 
   const remainingSeconds = Math.max(0, duration - position);
   const remainingMinutes = Math.ceil(remainingSeconds / 60);
-  
-  // Use player state URLs if available, otherwise use fetched URLs
-  const coverUrl = (audiobookId === currentAudiobook.id ? signedUrls?.coverImage : null) 
-    || fetchedUrls?.urls?.coverImage;
+  const accent = pickAccent(currentAudiobook.id ?? currentAudiobook.title);
+
+  const coverUrl =
+    (audiobookId === currentAudiobook.id ? signedUrls?.coverImage : null) ||
+    fetchedUrls?.urls?.coverImage;
 
   return (
     <View style={styles.container}>
       <View style={styles.progressBar}>
         <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
       </View>
-      
-      <TouchableOpacity
-        style={styles.content}
-        onPress={onExpand}
-        activeOpacity={0.9}
-      >
+
+      <TouchableOpacity style={styles.content} onPress={onExpand} activeOpacity={0.92}>
         {coverUrl ? (
           <Image source={{ uri: coverUrl }} style={styles.coverImage} />
         ) : (
-          <View style={styles.coverPlaceholder}>
+          <LinearGradient
+            colors={[accent, "rgba(0,0,0,0.55)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.coverPlaceholder}
+          >
             <Text style={styles.coverInitial}>
               {currentAudiobook.title[0]?.toUpperCase()}
             </Text>
-          </View>
+          </LinearGradient>
         )}
 
         <View style={styles.info}>
@@ -77,7 +81,9 @@ export function MiniPlayer({ onExpand }: { onExpand: () => void }) {
             {currentAudiobook.title}
           </Text>
           <Text style={styles.author} numberOfLines={1}>
-            {isLoading ? "Loading..." : (
+            {isLoading ? (
+              "Loading…"
+            ) : (
               <>
                 {currentAudiobook.author?.name}
                 {remainingMinutes > 0 && duration > 0 && ` · ${remainingMinutes} min left`}
@@ -94,11 +100,11 @@ export function MiniPlayer({ onExpand }: { onExpand: () => void }) {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#000" />
+              <ActivityIndicator size="small" color={theme.colors.primary} />
             ) : isPlaying ? (
-              <Pause size={22} color="#000" fill="#000" />
+              <Pause size={20} color={theme.colors.primary} fill={theme.colors.primary} />
             ) : (
-              <Play size={22} color="#000" fill="#000" />
+              <Play size={20} color={theme.colors.primary} fill={theme.colors.primary} />
             )}
           </TouchableOpacity>
 
@@ -107,7 +113,7 @@ export function MiniPlayer({ onExpand }: { onExpand: () => void }) {
             onPress={handleClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <X size={20} color="#999" strokeWidth={2} />
+            <X size={18} color={theme.colors.tertiary} strokeWidth={2} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -115,86 +121,88 @@ export function MiniPlayer({ onExpand }: { onExpand: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    bottom: TAB_BAR_HEIGHT,
-    left: 0,
-    right: 0,
-    height: MINI_PLAYER_HEIGHT,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  progressBar: {
-    height: 2,
-    backgroundColor: "#f0f0f0",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: Colors.accent,
-  },
-  content: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  coverImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 6,
-  },
-  coverPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 6,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  coverInitial: {
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-    color: "#fff",
-  },
-  info: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 15,
-    fontFamily: Fonts.medium,
-    color: "#000",
-  },
-  author: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: "#888",
-    marginTop: 2,
-  },
-  controls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  playButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  playButtonLoading: {
-    opacity: 0.7,
-  },
-  closeButton: {
-    padding: 8,
-  },
-});
+function createStyles(theme: AppTheme) {
+  const { colors, type, space, radius, shadows, fonts } = theme;
+  return StyleSheet.create({
+    container: {
+      position: "absolute",
+      bottom: TAB_BAR_HEIGHT,
+      left: space.sm,
+      right: space.sm,
+      height: MINI_PLAYER_HEIGHT,
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+      ...shadows.floating.native,
+    },
+    progressBar: {
+      height: 2,
+      backgroundColor: colors.surfaceMuted,
+    },
+    progressFill: {
+      height: "100%",
+      backgroundColor: colors.primary,
+    },
+    content: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: space.sm,
+      gap: space.sm,
+    },
+    coverImage: {
+      width: 42,
+      height: 42,
+      borderRadius: radius.sm,
+    },
+    coverPlaceholder: {
+      width: 42,
+      height: 42,
+      borderRadius: radius.sm,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    coverInitial: {
+      fontFamily: fonts.display.regular,
+      fontSize: 18,
+      color: "#FFFFFF",
+      letterSpacing: -0.4,
+    },
+    info: {
+      flex: 1,
+    },
+    title: {
+      ...type.body,
+      fontFamily: fonts.body.medium,
+      fontSize: 14,
+      lineHeight: 18,
+      color: colors.primary,
+    },
+    author: {
+      ...type.caption,
+      color: colors.secondary,
+      marginTop: 2,
+    },
+    controls: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+    },
+    playButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surfaceMuted,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    playButtonLoading: {
+      opacity: 0.7,
+    },
+    closeButton: {
+      padding: space.xs,
+    },
+  });
+}

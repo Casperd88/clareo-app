@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Play, Plus } from "lucide-react-native";
 import {
   useLibrary,
@@ -24,6 +25,8 @@ import type { Audiobook } from "../types";
 import { logout } from "../store/authSlice";
 import { setAudiobook } from "../store/playerSlice";
 import { Logo } from "../components/Logo";
+import { useTheme, pickAccent } from "../theme";
+import type { AppTheme } from "../theme";
 
 const { width } = Dimensions.get("window");
 const CARD_GAP = 16;
@@ -35,6 +38,8 @@ interface CatalogueCardProps {
   onAdd: () => void;
   onPlay: () => void;
   isAdding: boolean;
+  theme: AppTheme;
+  styles: ReturnType<typeof createStyles>;
 }
 
 function CatalogueCard({
@@ -43,45 +48,54 @@ function CatalogueCard({
   onAdd,
   onPlay,
   isAdding,
+  theme,
+  styles,
 }: CatalogueCardProps) {
   const { data: signedUrls, isLoading: urlsLoading } = useSignedUrls(audiobook.id);
 
   const coverUri = signedUrls?.urls?.coverImage;
+  const accent = pickAccent(audiobook.id ?? audiobook.title);
 
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={isInLibrary ? onPlay : onAdd}
-      activeOpacity={0.8}
+      activeOpacity={0.85}
     >
       <View style={styles.coverShadow}>
         <View style={styles.coverContainer}>
           {urlsLoading ? (
             <View style={[styles.cover, styles.placeholderCover]}>
-              <ActivityIndicator size="small" color="#ccc" />
+              <ActivityIndicator size="small" color={theme.colors.tertiary} />
             </View>
           ) : coverUri ? (
-            <Image
-              source={{ uri: coverUri }}
-              style={styles.cover}
-              resizeMode="cover"
-            />
+            <Image source={{ uri: coverUri }} style={styles.cover} resizeMode="cover" />
           ) : (
-            <View style={[styles.cover, styles.placeholderCover]}>
-              <Logo width={40} color="#ccc" />
-            </View>
+            <LinearGradient
+              colors={[accent, "#000000"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1.2 }}
+              style={[styles.cover, styles.placeholderCover]}
+            >
+              <Text style={styles.placeholderEyebrow} numberOfLines={1}>
+                {audiobook.author?.name?.split(" ").slice(-1)[0] ?? "Clareo"}
+              </Text>
+              <Text style={styles.placeholderTitle} numberOfLines={3}>
+                {audiobook.title}
+              </Text>
+            </LinearGradient>
           )}
           <View style={styles.overlay} />
-          <View style={styles.playButtonContainer}>
+          <View style={styles.actionContainer}>
             {isAdding ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : isInLibrary ? (
               <View style={styles.playButton}>
-                <Play size={20} color="#fff" fill="#fff" />
+                <Play size={20} color="#FFFFFF" fill="#FFFFFF" />
               </View>
             ) : (
               <View style={styles.addButton}>
-                <Plus size={24} color="#fff" strokeWidth={2} />
+                <Plus size={22} color={theme.colors.primaryInverse} strokeWidth={2} />
               </View>
             )}
           </View>
@@ -91,7 +105,7 @@ function CatalogueCard({
         {audiobook.title}
       </Text>
       <Text style={styles.author} numberOfLines={1}>
-        {audiobook.author?.name || "Unknown Author"}
+        {audiobook.author?.name || "Unknown author"}
       </Text>
     </TouchableOpacity>
   );
@@ -100,6 +114,8 @@ function CatalogueCard({
 export function LibraryScreen() {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const {
     data: libraryData,
@@ -119,12 +135,12 @@ export function LibraryScreen() {
 
   const libraryIds = useMemo(
     () => new Set(libraryData?.library?.map((item) => item.audiobook.id) || []),
-    [libraryData?.library]
+    [libraryData?.library],
   );
 
   const audiobooks = useMemo(
     () => catalogueData?.audiobooks || [],
-    [catalogueData?.audiobooks]
+    [catalogueData?.audiobooks],
   );
 
   const handleLogout = useCallback(() => {
@@ -140,15 +156,14 @@ export function LibraryScreen() {
     (audiobookId: string) => {
       addToLibrary.mutate(audiobookId);
     },
-    [addToLibrary]
+    [addToLibrary],
   );
 
   const handlePlay = useCallback(
     (audiobook: Audiobook) => {
-      // Catalogue view starts from beginning (no saved position)
       dispatch(setAudiobook({ audiobook, startPosition: 0 }));
     },
-    [dispatch]
+    [dispatch],
   );
 
   const renderItem = useCallback(
@@ -166,10 +181,20 @@ export function LibraryScreen() {
           onAdd={() => handleAdd(item.id)}
           onPlay={() => handlePlay(item)}
           isAdding={addToLibrary.isPending && addToLibrary.variables === item.id}
+          theme={theme}
+          styles={styles}
         />
       </View>
     ),
-    [libraryIds, handleAdd, handlePlay, addToLibrary.isPending, addToLibrary.variables]
+    [
+      libraryIds,
+      handleAdd,
+      handlePlay,
+      addToLibrary.isPending,
+      addToLibrary.variables,
+      theme,
+      styles,
+    ],
   );
 
   const keyExtractor = useCallback((item: Audiobook) => item.id, []);
@@ -178,10 +203,12 @@ export function LibraryScreen() {
     () => (
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.eyebrow}>Editorial library</Text>
             <Text style={styles.headerTitle}>Discover</Text>
             <Text style={styles.headerSubtitle}>
-              {audiobooks.length} {audiobooks.length === 1 ? "audiobook" : "audiobooks"}
+              {audiobooks.length} {audiobooks.length === 1 ? "title" : "titles"}, hand-picked
+              for slow listening.
             </Text>
           </View>
           <TouchableOpacity onPress={handleLogout} style={styles.profileButton}>
@@ -196,18 +223,18 @@ export function LibraryScreen() {
         </View>
       </View>
     ),
-    [audiobooks.length, user, handleLogout]
+    [audiobooks.length, user, handleLogout, styles],
   );
 
   const ListEmptyComponent = useMemo(
     () => (
       <View style={styles.emptyContainer}>
-        <Logo width={60} color="#ccc" />
-        <Text style={styles.emptyTitle}>No Audiobooks Yet</Text>
-        <Text style={styles.emptySubtitle}>Check back later for new titles</Text>
+        <Logo width={56} color={theme.colors.quaternary} />
+        <Text style={styles.emptyTitle}>Nothing here yet</Text>
+        <Text style={styles.emptySubtitle}>New titles arrive every week.</Text>
       </View>
     ),
-    []
+    [styles, theme.colors.quaternary],
   );
 
   const isLoading = libraryLoading || catalogueLoading;
@@ -217,8 +244,8 @@ export function LibraryScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
-          <Text style={styles.loadingText}>Loading...</Text>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Loading…</Text>
         </View>
       </SafeAreaView>
     );
@@ -238,7 +265,7 @@ export function LibraryScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            tintColor="#000"
+            tintColor={theme.colors.primary}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -247,144 +274,176 @@ export function LibraryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFF",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    color: "#888",
-    fontSize: 16,
-    marginTop: 12,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  header: {
-    marginBottom: 24,
-    paddingTop: 8,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  headerTitle: {
-    fontSize: 34,
-    fontWeight: "700",
-    color: "#000",
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    color: "#888",
-    marginTop: 4,
-  },
-  profileButton: {
-    padding: 4,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    color: "#000",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 100,
-    gap: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#000",
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    color: "#888",
-  },
-  card: {
-    width: "100%",
-  },
-  coverShadow: {
-    aspectRatio: 1,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  coverContainer: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#f0f0f0",
-  },
-  cover: {
-    width: "100%",
-    height: "100%",
-  },
-  placeholderCover: {
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.15)",
-  },
-  playButtonContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  playButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 2,
-    paddingLeft: 2,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 4,
-  },
-  author: {
-    fontSize: 13,
-    color: "#888",
-  },
-});
+function createStyles(theme: AppTheme) {
+  const { colors, type, space, radius, shadows, fonts } = theme;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    loadingText: {
+      color: colors.tertiary,
+      fontSize: 14,
+      marginTop: space.sm,
+      fontFamily: fonts.body.regular,
+    },
+    listContent: {
+      paddingHorizontal: space.md,
+      paddingBottom: 120,
+    },
+    header: {
+      marginBottom: space.xl,
+      paddingHorizontal: space.xs,
+      paddingTop: space.xs,
+    },
+    headerRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    eyebrow: {
+      ...type.eyebrow,
+      color: colors.tertiary,
+      marginBottom: space.xs,
+    },
+    headerTitle: {
+      fontFamily: fonts.display.italic,
+      fontSize: 40,
+      lineHeight: 44,
+      color: colors.primary,
+      letterSpacing: -0.6,
+      fontStyle: "italic",
+    },
+    headerSubtitle: {
+      ...type.body,
+      color: colors.secondary,
+      marginTop: space.xs,
+      maxWidth: 320,
+    },
+    profileButton: {
+      padding: 4,
+    },
+    avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    avatarText: {
+      color: colors.primary,
+      fontSize: 15,
+      fontFamily: fonts.body.medium,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingTop: 100,
+      gap: space.md,
+    },
+    emptyTitle: {
+      ...type.title,
+      fontSize: 22,
+      lineHeight: 28,
+      color: colors.primary,
+    },
+    emptySubtitle: {
+      ...type.body,
+      color: colors.secondary,
+    },
+    card: {
+      width: "100%",
+    },
+    coverShadow: {
+      aspectRatio: 0.78,
+      borderRadius: radius.lg,
+      marginBottom: space.sm,
+      ...shadows.card.native,
+    },
+    coverContainer: {
+      flex: 1,
+      borderRadius: radius.lg,
+      overflow: "hidden",
+      backgroundColor: colors.surfaceMuted,
+    },
+    cover: {
+      width: "100%",
+      height: "100%",
+    },
+    placeholderCover: {
+      justifyContent: "flex-end",
+      alignItems: "flex-start",
+      padding: space.md,
+    },
+    placeholderEyebrow: {
+      fontFamily: fonts.body.medium,
+      fontSize: 10,
+      letterSpacing: 1.4,
+      textTransform: "uppercase",
+      color: "rgba(255,255,255,0.78)",
+      marginBottom: space.xs,
+    },
+    placeholderTitle: {
+      fontFamily: fonts.display.regular,
+      fontSize: 18,
+      lineHeight: 22,
+      color: "#FFFFFF",
+      letterSpacing: -0.2,
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(15, 17, 22, 0.10)",
+    },
+    actionContainer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    playButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: "rgba(15, 17, 22, 0.55)",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingTop: 2,
+      paddingLeft: 2,
+    },
+    addButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primary,
+      justifyContent: "center",
+      alignItems: "center",
+      ...shadows.floating.native,
+    },
+    title: {
+      ...type.body,
+      fontSize: 14,
+      lineHeight: 18,
+      color: colors.primary,
+      marginBottom: 2,
+      fontFamily: fonts.body.medium,
+    },
+    author: {
+      ...type.bodySmall,
+      color: colors.secondary,
+      fontFamily: fonts.display.italic,
+      fontStyle: "italic",
+    },
+  });
+}

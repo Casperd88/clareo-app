@@ -1,6 +1,5 @@
 import React, { useRef, useCallback, useMemo, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, PanResponder, LayoutChangeEvent, Pressable } from 'react-native';
-import { Colors, Fonts } from '../constants';
 import type { Chapter } from '../types';
 
 interface ProgressBarProps {
@@ -188,6 +187,14 @@ export function ProgressBar({ progress, elapsed, remaining, duration, chapters, 
   );
 }
 
+// The ProgressBar lives on the player screen, which always sits over a
+// dark shader. Track/fill/text colors are pinned to translucent white
+// rather than themed.
+const TRACK_COLOR = 'rgba(255,255,255,0.18)';
+const FILL_COLOR = '#FFFFFF';
+const THUMB_COLOR = '#FFFFFF';
+const TIME_COLOR = 'rgba(255,255,255,0.65)';
+
 const styles = StyleSheet.create({
   container: {
     marginBottom: 30,
@@ -205,13 +212,13 @@ const styles = StyleSheet.create({
   },
   track: {
     height: TRACK_HEIGHT,
-    backgroundColor: Colors.progressTrack,
+    backgroundColor: TRACK_COLOR,
     borderRadius: TRACK_HEIGHT / 2,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
-    backgroundColor: Colors.progressThumb,
+    backgroundColor: FILL_COLOR,
     borderRadius: TRACK_HEIGHT / 2,
   },
   segmentedTrackContainer: {
@@ -221,13 +228,13 @@ const styles = StyleSheet.create({
   },
   chapterSegment: {
     height: TRACK_HEIGHT,
-    backgroundColor: Colors.progressTrack,
+    backgroundColor: TRACK_COLOR,
     borderRadius: TRACK_HEIGHT / 2,
     overflow: 'hidden',
   },
   chapterFill: {
     height: '100%',
-    backgroundColor: Colors.progressThumb,
+    backgroundColor: FILL_COLOR,
     borderRadius: TRACK_HEIGHT / 2,
   },
   chapterGap: {
@@ -244,17 +251,21 @@ const styles = StyleSheet.create({
     width: THUMB_SIZE,
     height: THUMB_SIZE,
     borderRadius: THUMB_SIZE / 2,
-    backgroundColor: Colors.progressThumb,
+    backgroundColor: THUMB_COLOR,
+    shadowColor: '#000000',
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   timeText: {
-    fontSize: 14,
-    color: Colors.secondary,
-    fontFamily: Fonts.medium,
-    opacity: 0.5,
+    fontSize: 13,
+    color: TIME_COLOR,
+    letterSpacing: 0.4,
     fontVariant: ['tabular-nums'],
   },
 });

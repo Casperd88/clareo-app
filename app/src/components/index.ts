@@ -13,3 +13,4 @@ export { AudioWaveform } from './AudioWaveform';
 export { MiniPlayer } from './MiniPlayer';
 export { BottomSheet } from './BottomSheet';
 export { AudioManager } from './AudioManager';
+export { AuthSplitLayout, useIsAuthSplitLayout } from './AuthSplitLayout';

@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from "react";
+import React, { useRef, useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -16,9 +16,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  interpolate,
-  Extrapolation,
 } from "react-native-reanimated";
 import {
   BookOpen,
@@ -37,35 +34,49 @@ import {
   nextStep,
   previousStep,
   setDisplayName,
+  setTotalSteps,
   toggleGenre,
   toggleListeningHabit,
   setMonthlyGoal,
   setPreferredSpeed,
   saveOnboardingPreferences,
 } from "../store/onboardingSlice";
+import { register, clearError as clearAuthError } from "../store/authSlice";
 import { Logo } from "../components/Logo";
-import { Colors } from "../constants/colors";
-import { Fonts } from "../constants/typography";
+import {
+  AuthSplitLayout,
+  useIsAuthSplitLayout,
+} from "../components/AuthSplitLayout";
+import { useTheme } from "../theme";
+import type { AppTheme } from "../theme";
 import type { ListeningHabit, PlaybackSpeedPreference } from "../types";
+
+interface OnboardingScreenProps {
+  requiresAccountCreation?: boolean;
+  onSignInPress?: () => void;
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const GENRES = [
-  { id: "personal-development", name: "Personal Development", emoji: "🌱" },
-  { id: "productivity", name: "Productivity", emoji: "⚡" },
-  { id: "business", name: "Business & Entrepreneurship", emoji: "💼" },
-  { id: "psychology", name: "Psychology & Mindset", emoji: "🧠" },
-  { id: "money", name: "Money & Finance", emoji: "💰" },
-  { id: "leadership", name: "Leadership", emoji: "👔" },
-  { id: "health", name: "Health & Wellness", emoji: "🏃" },
-  { id: "communication", name: "Communication", emoji: "💬" },
-  { id: "relationships", name: "Relationships", emoji: "❤️" },
-  { id: "career", name: "Career & Success", emoji: "🎯" },
-  { id: "creativity", name: "Creativity", emoji: "🎨" },
-  { id: "science", name: "Science & Technology", emoji: "🔬" },
-  { id: "philosophy", name: "Philosophy", emoji: "💭" },
-  { id: "history", name: "History", emoji: "📜" },
-  { id: "parenting", name: "Parenting & Education", emoji: "👨‍👩‍👧" },
+  { id: "personal-development", name: "Personal Development" },
+  { id: "productivity", name: "Productivity" },
+  { id: "business", name: "Business & Entrepreneurship" },
+  { id: "psychology", name: "Psychology & Mindset" },
+  { id: "money", name: "Money & Finance" },
+  { id: "leadership", name: "Leadership" },
+  { id: "health", name: "Health & Wellness" },
+  { id: "communication", name: "Communication" },
+  { id: "relationships", name: "Relationships" },
+  { id: "career", name: "Career & Success" },
+  { id: "creativity", name: "Creativity" },
+  { id: "science", name: "Science & Technology" },
+  { id: "philosophy", name: "Philosophy" },
+  { id: "history", name: "History" },
+  { id: "parenting", name: "Parenting & Education" },
 ];
 
 const LISTENING_HABITS: {
@@ -74,74 +85,103 @@ const LISTENING_HABITS: {
   icon: typeof Car;
   description: string;
 }[] = [
-  {
-    id: "commute",
-    name: "Commuting",
-    icon: Car,
-    description: "On your way to work",
-  },
-  {
-    id: "exercise",
-    name: "Working Out",
-    icon: Dumbbell,
-    description: "At the gym or running",
-  },
-  {
-    id: "bedtime",
-    name: "Before Bed",
-    icon: Moon,
-    description: "Winding down at night",
-  },
-  {
-    id: "housework",
-    name: "Housework",
-    icon: Home,
-    description: "Cleaning or cooking",
-  },
-  {
-    id: "relaxation",
-    name: "Relaxing",
-    icon: Headphones,
-    description: "Just chilling out",
-  },
-  {
-    id: "work",
-    name: "While Working",
-    icon: Briefcase,
-    description: "Background listening",
-  },
+  { id: "commute", name: "Commuting", icon: Car, description: "On your way to work" },
+  { id: "exercise", name: "Working out", icon: Dumbbell, description: "At the gym or running" },
+  { id: "bedtime", name: "Before bed", icon: Moon, description: "Winding down at night" },
+  { id: "housework", name: "Housework", icon: Home, description: "Cleaning or cooking" },
+  { id: "relaxation", name: "Relaxing", icon: Headphones, description: "Just chilling out" },
+  { id: "work", name: "While working", icon: Briefcase, description: "Background listening" },
 ];
 
 const MONTHLY_GOALS = [1, 2, 3, 4, 5, 6];
 const PLAYBACK_SPEEDS: PlaybackSpeedPreference[] = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
-export function OnboardingScreen() {
+export function OnboardingScreen({
+  requiresAccountCreation = false,
+  onSignInPress,
+}: OnboardingScreenProps = {}) {
   const dispatch = useAppDispatch();
+  const theme = useTheme();
+  const isSplitLayout = useIsAuthSplitLayout();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  const habitCardWidth = useMemo(() => {
+    const frameWidth = isSplitLayout ? 560 : SCREEN_WIDTH;
+    return (frameWidth - theme.space.xl * 2 - theme.space.sm) / 2;
+  }, [isSplitLayout, theme.space.xl, theme.space.sm]);
+
   const { currentStep, totalSteps, data, isSaving, error } = useAppSelector(
-    (state) => state.onboarding
+    (state) => state.onboarding,
   );
+  const { isLoading: isAuthLoading, error: authError } = useAppSelector(
+    (state) => state.auth,
+  );
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const setupStepCount = requiresAccountCreation ? 5 : 4;
+  const desiredTotalSteps = requiresAccountCreation ? 6 : 5;
+
+  React.useEffect(() => {
+    if (totalSteps !== desiredTotalSteps) {
+      dispatch(setTotalSteps(desiredTotalSteps));
+    }
+  }, [desiredTotalSteps, totalSteps, dispatch]);
+
+  const accountStepIndex = requiresAccountCreation ? 5 : -1;
+  const isAccountStep = currentStep === accountStepIndex;
+  const isFinalStep = currentStep === desiredTotalSteps - 1;
 
   const scrollViewRef = useRef<ScrollView>(null);
   const progress = useSharedValue(0);
 
   React.useEffect(() => {
-    progress.value = withSpring(currentStep / (totalSteps - 1), {
+    progress.value = withSpring(currentStep / (desiredTotalSteps - 1), {
       damping: 20,
       stiffness: 100,
     });
-  }, [currentStep, totalSteps, progress]);
+  }, [currentStep, desiredTotalSteps, progress]);
 
   const progressBarStyle = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
   }));
 
-  const handleNext = useCallback(() => {
-    if (currentStep === totalSteps - 1) {
-      dispatch(saveOnboardingPreferences(data));
-    } else {
-      dispatch(nextStep());
+  React.useEffect(() => {
+    if (isAccountStep) {
+      dispatch(clearAuthError());
     }
-  }, [currentStep, totalSteps, dispatch, data]);
+  }, [isAccountStep, dispatch]);
+
+  const handleNext = useCallback(async () => {
+    if (!isFinalStep) {
+      dispatch(nextStep());
+      return;
+    }
+
+    if (requiresAccountCreation) {
+      const result = await dispatch(
+        register({
+          email: email.trim(),
+          password,
+          name: data.displayName.trim() || undefined,
+        }),
+      );
+      if (register.fulfilled.match(result)) {
+        await dispatch(saveOnboardingPreferences(data));
+      }
+      return;
+    }
+
+    dispatch(saveOnboardingPreferences(data));
+  }, [
+    isFinalStep,
+    requiresAccountCreation,
+    dispatch,
+    data,
+    email,
+    password,
+  ]);
 
   const handleBack = useCallback(() => {
     dispatch(previousStep());
@@ -152,55 +192,95 @@ export function OnboardingScreen() {
       case 0:
         return true;
       case 1:
-        return data.displayName.trim().length >= 2;
-      case 2:
         return data.selectedGenres.length >= 3;
-      case 3:
+      case 2:
         return data.listeningHabits.length >= 1;
-      case 4:
+      case 3:
         return true;
+      case 4:
+        return data.displayName.trim().length >= 2;
+      case 5:
+        return (
+          EMAIL_REGEX.test(email.trim()) && password.length >= MIN_PASSWORD_LENGTH
+        );
       default:
         return true;
     }
-  }, [currentStep, data]);
+  }, [currentStep, data, email, password]);
 
-  const renderProgressBar = () => (
-    <View style={styles.progressContainer}>
-      <View style={styles.progressTrack}>
-        <Animated.View style={[styles.progressBar, progressBarStyle]} />
+  const renderProgressBar = () => {
+    const row = (
+      <View
+        style={[
+          styles.progressRow,
+          isSplitLayout && styles.progressRowDesktop,
+        ]}
+      >
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressBar, progressBarStyle]} />
+        </View>
+        <Text style={styles.progressText}>
+          {currentStep + 1} of {totalSteps}
+        </Text>
       </View>
-      <Text style={styles.progressText}>
-        {currentStep + 1} of {totalSteps}
-      </Text>
-    </View>
-  );
+    );
+    if (!isSplitLayout) return row;
+    return <View style={styles.progressContainerDesktop}>{row}</View>;
+  };
 
   const renderWelcomeStep = () => (
     <View style={styles.stepContainer}>
-      <View style={styles.welcomeIconContainer}>
-        <Logo width={80} color={Colors.primary} />
+      <View style={styles.welcomeHeader}>
+        <View style={styles.welcomeIconContainer}>
+          <Logo width={64} color={theme.colors.primary} />
+        </View>
+        <Text style={styles.welcomeEyebrow}>An editorial library</Text>
+        <Text style={styles.welcomeTitle}>
+          Stories that{"\n"}
+          <Text style={styles.welcomeTitleAccent}>stay with you.</Text>
+        </Text>
+        <Text style={styles.welcomeSubtitle}>
+          We’ll set up the small things in a few steps so the right book finds
+          you on the right morning.
+        </Text>
       </View>
-      <Text style={styles.welcomeTitle}>Welcome to Audiobooks</Text>
-      <Text style={styles.welcomeSubtitle}>
-        Let's personalize your experience in just a few quick steps. We'll help
-        you discover stories you'll love.
-      </Text>
-      <View style={styles.featureList}>
-        <FeatureItem
-          icon={BookOpen}
-          title="Curated Recommendations"
-          description="Get personalized picks based on your tastes"
-        />
-        <FeatureItem
-          icon={Headphones}
-          title="Smart Listening"
-          description="Pick up right where you left off"
-        />
-        <FeatureItem
-          icon={Sparkles}
-          title="Reading Goals"
-          description="Track your progress and stay motivated"
-        />
+      <View style={styles.welcomeBody}>
+        <View style={styles.featureList}>
+          <FeatureItem
+            icon={BookOpen}
+            title="Hand-picked"
+            description="Editor-curated, not algorithm-spun."
+            theme={theme}
+            styles={styles}
+          />
+          <FeatureItem
+            icon={Headphones}
+            title="Quietly resumed"
+            description="Pick up exactly where you left off, on any device."
+            theme={theme}
+            styles={styles}
+          />
+          <FeatureItem
+            icon={Sparkles}
+            title="Gently guided"
+            description="A reading rhythm that fits your week."
+            theme={theme}
+            styles={styles}
+          />
+        </View>
+        {requiresAccountCreation && onSignInPress && (
+          <TouchableOpacity
+            style={styles.signInLink}
+            onPress={onSignInPress}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+          >
+            <Text style={styles.signInLinkText}>
+              Already have an account?{" "}
+              <Text style={styles.signInLinkAccent}>Sign in</Text>
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -210,88 +290,114 @@ export function OnboardingScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.stepContainer}
     >
-      <Text style={styles.stepTitle}>What should we call you?</Text>
-      <Text style={styles.stepSubtitle}>
-        This helps us personalize your experience
-      </Text>
-      <View style={styles.inputWrapper}>
-        <TextInput
-          style={styles.nameInput}
-          placeholder="Enter your name"
-          placeholderTextColor="#999"
-          value={data.displayName}
-          onChangeText={(text) => dispatch(setDisplayName(text))}
-          autoCapitalize="words"
-          autoCorrect={false}
-          autoFocus
-          maxLength={30}
-        />
-        {data.displayName.length > 0 && (
-          <Text style={styles.greeting}>
-            Hi, {data.displayName}! 👋
-          </Text>
-        )}
+      <View>
+        <Text style={styles.stepEyebrow}>Step 4 of {setupStepCount}</Text>
+        <Text style={styles.stepTitle}>What should we call you?</Text>
+        <Text style={styles.stepSubtitle}>
+          Just a first name is fine — we’ll use it now and again.
+        </Text>
+      </View>
+      <View style={styles.stepBody}>
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.nameInput}
+            placeholder="Your name"
+            placeholderTextColor={theme.colors.tertiary}
+            value={data.displayName}
+            onChangeText={(text) => dispatch(setDisplayName(text))}
+            autoCapitalize="words"
+            autoCorrect={false}
+            autoFocus
+            maxLength={30}
+          />
+          {data.displayName.length > 0 && (
+            <Text style={styles.greeting}>
+              <Text style={{ fontStyle: "italic" }}>Welcome,</Text>{" "}
+              {data.displayName}.
+            </Text>
+          )}
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
 
   const renderGenresStep = () => (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>What do you love to listen to?</Text>
-      <Text style={styles.stepSubtitle}>
-        Select at least 3 genres to get started
-      </Text>
-      <View style={styles.genreGrid}>
-        {GENRES.map((genre) => {
-          const isSelected = data.selectedGenres.includes(genre.id);
-          return (
-            <TouchableOpacity
-              key={genre.id}
-              style={[styles.genreChip, isSelected && styles.genreChipSelected]}
-              onPress={() => dispatch(toggleGenre(genre.id))}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.genreEmoji}>{genre.emoji}</Text>
-              <Text
-                style={[
-                  styles.genreText,
-                  isSelected && styles.genreTextSelected,
-                ]}
-              >
-                {genre.name}
-              </Text>
-              {isSelected && (
-                <View style={styles.checkmark}>
-                  <Check size={12} color="#fff" strokeWidth={3} />
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+      <View>
+        <Text style={styles.stepEyebrow}>Step 1 of {setupStepCount}</Text>
+        <Text style={styles.stepTitle}>What pulls you in?</Text>
+        <Text style={styles.stepSubtitle}>
+          Pick at least three. We’ll use them as starting points, not
+          boundaries.
+        </Text>
       </View>
-      <Text style={styles.selectionCount}>
-        {data.selectedGenres.length} selected
-        {data.selectedGenres.length < 3 && " (minimum 3)"}
-      </Text>
+      <View style={styles.stepBody}>
+        <View style={styles.genreGrid}>
+          {GENRES.map((genre) => {
+            const isSelected = data.selectedGenres.includes(genre.id);
+            return (
+              <TouchableOpacity
+                key={genre.id}
+                style={[
+                  styles.genreChip,
+                  isSelected && styles.genreChipSelected,
+                ]}
+                onPress={() => dispatch(toggleGenre(genre.id))}
+                activeOpacity={0.85}
+              >
+                <Text
+                  style={[
+                    styles.genreText,
+                    isSelected && styles.genreTextSelected,
+                  ]}
+                >
+                  {genre.name}
+                </Text>
+                {isSelected && (
+                  <View style={styles.checkmark}>
+                    <Check
+                      size={11}
+                      color={theme.colors.primary}
+                      strokeWidth={3}
+                    />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text style={styles.selectionCount}>
+          {data.selectedGenres.length} selected
+          {data.selectedGenres.length < 3 && " (minimum 3)"}
+        </Text>
+      </View>
     </View>
   );
 
   const renderHabitsStep = () => (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>When do you usually listen?</Text>
-      <Text style={styles.stepSubtitle}>
-        This helps us optimize your experience
-      </Text>
-      <View style={styles.habitsGrid}>
+      <View>
+        <Text style={styles.stepEyebrow}>Step 2 of {setupStepCount}</Text>
+        <Text style={styles.stepTitle}>When do you usually listen?</Text>
+        <Text style={styles.stepSubtitle}>
+          We’ll tune what plays, and how, to match the moment.
+        </Text>
+      </View>
+      <View style={styles.stepBody}>
+        <View style={styles.habitsGrid}>
         {LISTENING_HABITS.map((habit) => {
           const isSelected = data.listeningHabits.includes(habit.id);
           const IconComponent = habit.icon;
           return (
             <TouchableOpacity
               key={habit.id}
-              style={[styles.habitCard, isSelected && styles.habitCardSelected]}
+              style={[
+                styles.habitCard,
+                { width: habitCardWidth },
+                isSelected && styles.habitCardSelected,
+              ]}
               onPress={() => dispatch(toggleListeningHabit(habit.id))}
-              activeOpacity={0.7}
+              activeOpacity={0.85}
             >
               <View
                 style={[
@@ -300,41 +406,40 @@ export function OnboardingScreen() {
                 ]}
               >
                 <IconComponent
-                  size={24}
-                  color={isSelected ? "#fff" : Colors.primary}
+                  size={22}
+                  color={isSelected ? theme.colors.primaryInverse : theme.colors.primary}
                   strokeWidth={1.5}
                 />
               </View>
-              <Text
-                style={[
-                  styles.habitName,
-                  isSelected && styles.habitNameSelected,
-                ]}
-              >
+              <Text style={[styles.habitName, isSelected && styles.habitNameSelected]}>
                 {habit.name}
               </Text>
               <Text style={styles.habitDescription}>{habit.description}</Text>
               {isSelected && (
                 <View style={styles.habitCheckmark}>
-                  <Check size={14} color="#fff" strokeWidth={3} />
+                  <Check size={12} color={theme.colors.primaryInverse} strokeWidth={3} />
                 </View>
               )}
             </TouchableOpacity>
           );
         })}
       </View>
+      </View>
     </View>
   );
 
   const renderGoalsStep = () => (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Set your listening goals</Text>
-      <Text style={styles.stepSubtitle}>
-        How many books would you like to finish each month?
-      </Text>
-
+      <View>
+        <Text style={styles.stepEyebrow}>Step 3 of {setupStepCount}</Text>
+        <Text style={styles.stepTitle}>Set the rhythm.</Text>
+        <Text style={styles.stepSubtitle}>
+          How many books would you like to finish each month?
+        </Text>
+      </View>
+      <View style={styles.stepBody}>
       <View style={styles.goalSection}>
-        <Text style={styles.goalLabel}>Monthly Goal</Text>
+        <Text style={styles.goalLabel}>Monthly goal</Text>
         <View style={styles.goalSelector}>
           {MONTHLY_GOALS.map((goal) => (
             <TouchableOpacity
@@ -344,7 +449,7 @@ export function OnboardingScreen() {
                 data.monthlyGoal === goal && styles.goalOptionSelected,
               ]}
               onPress={() => dispatch(setMonthlyGoal(goal))}
-              activeOpacity={0.7}
+              activeOpacity={0.85}
             >
               <Text
                 style={[
@@ -366,12 +471,12 @@ export function OnboardingScreen() {
           ))}
         </View>
         <Text style={styles.goalHint}>
-          That's about {Math.ceil((data.monthlyGoal * 8) / 4)} hours per week
+          About {Math.ceil((data.monthlyGoal * 8) / 4)} hours per week.
         </Text>
       </View>
 
       <View style={styles.speedSection}>
-        <Text style={styles.goalLabel}>Preferred Playback Speed</Text>
+        <Text style={styles.goalLabel}>Listening speed</Text>
         <View style={styles.speedSelector}>
           {PLAYBACK_SPEEDS.map((speed) => (
             <TouchableOpacity
@@ -381,7 +486,7 @@ export function OnboardingScreen() {
                 data.preferredSpeed === speed && styles.speedOptionSelected,
               ]}
               onPress={() => dispatch(setPreferredSpeed(speed))}
-              activeOpacity={0.7}
+              activeOpacity={0.85}
             >
               <Text
                 style={[
@@ -389,24 +494,95 @@ export function OnboardingScreen() {
                   data.preferredSpeed === speed && styles.speedTextSelected,
                 ]}
               >
-                {speed}x
+                {speed}×
               </Text>
             </TouchableOpacity>
           ))}
         </View>
         <Text style={styles.speedHint}>
           {data.preferredSpeed === 1
-            ? "Normal speed, perfect for immersion"
+            ? "Natural cadence — best for first listens."
             : data.preferredSpeed < 1
-            ? "Slower pace, great for complex narratives"
-            : data.preferredSpeed <= 1.25
-            ? "Slightly faster, still easy to follow"
-            : data.preferredSpeed <= 1.5
-            ? "Quick pace, good for familiar content"
-            : "Speed listener! Finish books faster"}
+              ? "Slower — for layered, language-rich writing."
+              : data.preferredSpeed <= 1.25
+                ? "A touch faster, still effortless."
+                : data.preferredSpeed <= 1.5
+                  ? "Brisk — best for familiar territory."
+                  : "Brisk and bracing. You finish books quickly."}
         </Text>
       </View>
+      </View>
     </View>
+  );
+
+  const renderAccountStep = () => (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.stepContainer}
+    >
+      <View>
+        <Text style={styles.stepEyebrow}>
+          Step {setupStepCount} of {setupStepCount}
+        </Text>
+        <Text style={styles.stepTitle}>Save your place.</Text>
+        <Text style={styles.stepSubtitle}>
+          Create an account so we can keep your library, progress, and
+          preferences in sync across devices.
+        </Text>
+      </View>
+      <View style={styles.stepBody}>
+      <View style={styles.accountForm}>
+        <View style={styles.accountFieldGroup}>
+          <Text style={styles.accountLabel}>Email</Text>
+          <TextInput
+            style={styles.accountInput}
+            placeholder="you@example.com"
+            placeholderTextColor={theme.colors.tertiary}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            editable={!isAuthLoading && !isSaving}
+          />
+        </View>
+        <View style={styles.accountFieldGroup}>
+          <Text style={styles.accountLabel}>Password</Text>
+          <TextInput
+            style={styles.accountInput}
+            placeholder="At least 8 characters"
+            placeholderTextColor={theme.colors.tertiary}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password-new"
+            textContentType="newPassword"
+            editable={!isAuthLoading && !isSaving}
+          />
+        </View>
+        <Text style={styles.accountFinePrint}>
+          By creating an account, you agree to our Terms of Service and Privacy
+          Policy.
+        </Text>
+      </View>
+      {onSignInPress && (
+        <TouchableOpacity
+          style={styles.signInLink}
+          onPress={onSignInPress}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          disabled={isAuthLoading || isSaving}
+        >
+          <Text style={styles.signInLinkText}>
+            Already have an account?{" "}
+            <Text style={styles.signInLinkAccent}>Sign in</Text>
+          </Text>
+        </TouchableOpacity>
+      )}
+      </View>
+    </KeyboardAvoidingView>
   );
 
   const renderCurrentStep = () => {
@@ -414,13 +590,15 @@ export function OnboardingScreen() {
       case 0:
         return renderWelcomeStep();
       case 1:
-        return renderProfileStep();
-      case 2:
         return renderGenresStep();
-      case 3:
+      case 2:
         return renderHabitsStep();
-      case 4:
+      case 3:
         return renderGoalsStep();
+      case 4:
+        return renderProfileStep();
+      case 5:
+        return renderAccountStep();
       default:
         return null;
     }
@@ -428,73 +606,98 @@ export function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {currentStep > 0 && renderProgressBar()}
-      <ScrollView
-        ref={scrollViewRef}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {renderCurrentStep()}
-      </ScrollView>
-      <View style={styles.footer}>
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-        <View style={styles.footerButtons}>
-          {currentStep > 0 && (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBack}
-              activeOpacity={0.7}
-              disabled={isSaving}
-            >
-              <ChevronLeft size={24} color={Colors.primary} strokeWidth={2} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
+      <AuthSplitLayout>
+        {currentStep > 0 && renderProgressBar()}
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isSplitLayout && styles.scrollContentDesktop,
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View
             style={[
-              styles.continueButton,
-              currentStep === 0 && styles.continueButtonFull,
-              (!canContinue() || isSaving) && styles.continueButtonDisabled,
+              styles.stepFrame,
+              isSplitLayout && styles.stepFrameDesktop,
             ]}
-            onPress={handleNext}
-            disabled={!canContinue() || isSaving}
-            activeOpacity={0.8}
           >
-            {isSaving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.continueButtonText}>
-                {currentStep === 0
-                  ? "Get Started"
-                  : currentStep === totalSteps - 1
-                  ? "Start Listening"
-                  : "Continue"}
-              </Text>
+            {renderCurrentStep()}
+          </View>
+        </ScrollView>
+        <View
+          style={[styles.footer, isSplitLayout && styles.footerDesktop]}
+        >
+          <View style={isSplitLayout ? styles.footerInner : undefined}>
+            {(error || (isAccountStep && authError)) && (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorText}>
+                  {isAccountStep && authError ? authError : error}
+                </Text>
+              </View>
             )}
-          </TouchableOpacity>
+            <View style={styles.footerButtons}>
+              {currentStep > 0 && (
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={handleBack}
+                  activeOpacity={0.7}
+                  disabled={isSaving || isAuthLoading}
+                >
+                  <ChevronLeft
+                    size={22}
+                    color={theme.colors.primary}
+                    strokeWidth={2}
+                  />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[
+                  styles.continueButton,
+                  (!canContinue() || isSaving || isAuthLoading) &&
+                    styles.continueButtonDisabled,
+                ]}
+                onPress={handleNext}
+                disabled={!canContinue() || isSaving || isAuthLoading}
+                activeOpacity={0.85}
+              >
+                {isSaving || isAuthLoading ? (
+                  <ActivityIndicator color={theme.colors.primaryInverse} />
+                ) : (
+                  <Text style={styles.continueButtonText}>
+                    {currentStep === 0
+                      ? "Begin"
+                      : isAccountStep
+                        ? "Create account"
+                        : isFinalStep
+                          ? "Start listening"
+                          : "Continue"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </View>
+      </AuthSplitLayout>
     </SafeAreaView>
   );
 }
 
-function FeatureItem({
-  icon: Icon,
-  title,
-  description,
-}: {
+interface FeatureItemProps {
   icon: typeof BookOpen;
   title: string;
   description: string;
-}) {
+  theme: AppTheme;
+  styles: ReturnType<typeof createStyles>;
+}
+
+function FeatureItem({ icon: Icon, title, description, theme, styles }: FeatureItemProps) {
   return (
     <View style={styles.featureItem}>
       <View style={styles.featureIcon}>
-        <Icon size={24} color={Colors.primary} strokeWidth={1.5} />
+        <Icon size={22} color={theme.colors.primary} strokeWidth={1.5} />
       </View>
       <View style={styles.featureContent}>
         <Text style={styles.featureTitle}>{title}</Text>
@@ -504,373 +707,489 @@ function FeatureItem({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  progressContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 4,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressBar: {
-    height: "100%",
-    backgroundColor: Colors.primary,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontFamily: Fonts.medium,
-    fontSize: 13,
-    color: "#999",
-    minWidth: 50,
-    textAlign: "right",
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-  },
-  stepContainer: {
-    flex: 1,
-    paddingTop: 20,
-    paddingBottom: 100,
-  },
-  welcomeIconContainer: {
-    alignItems: "center",
-    marginBottom: 32,
-    marginTop: 40,
-  },
-  welcomeTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 32,
-    color: Colors.primary,
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  welcomeSubtitle: {
-    fontFamily: Fonts.regular,
-    fontSize: 17,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 26,
-    marginBottom: 48,
-    paddingHorizontal: 16,
-  },
-  featureList: {
-    gap: 20,
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    backgroundColor: "#f8f8f8",
-    padding: 20,
-    borderRadius: 16,
-  },
-  featureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  featureContent: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontFamily: Fonts.medium,
-    fontSize: 16,
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontFamily: Fonts.regular,
-    fontSize: 14,
-    color: "#888",
-  },
-  stepTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 28,
-    color: Colors.primary,
-    marginBottom: 12,
-  },
-  stepSubtitle: {
-    fontFamily: Fonts.regular,
-    fontSize: 16,
-    color: "#888",
-    marginBottom: 32,
-  },
-  inputWrapper: {
-    gap: 16,
-  },
-  nameInput: {
-    fontFamily: Fonts.medium,
-    fontSize: 20,
-    color: Colors.primary,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  greeting: {
-    fontFamily: Fonts.medium,
-    fontSize: 24,
-    color: Colors.primary,
-    textAlign: "center",
-    marginTop: 24,
-  },
-  genreGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 20,
-  },
-  genreChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#f5f5f5",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  genreChipSelected: {
-    backgroundColor: "#000",
-    borderColor: "#000",
-  },
-  genreEmoji: {
-    fontSize: 18,
-  },
-  genreText: {
-    fontFamily: Fonts.medium,
-    fontSize: 14,
-    color: Colors.primary,
-  },
-  genreTextSelected: {
-    color: "#fff",
-  },
-  checkmark: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 4,
-  },
-  selectionCount: {
-    fontFamily: Fonts.regular,
-    fontSize: 14,
-    color: "#888",
-    textAlign: "center",
-  },
-  habitsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  habitCard: {
-    width: (SCREEN_WIDTH - 48 - 12) / 2,
-    backgroundColor: "#f8f8f8",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: "transparent",
-    position: "relative",
-  },
-  habitCardSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: "#fafafa",
-  },
-  habitIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  habitIconContainerSelected: {
-    backgroundColor: Colors.primary,
-  },
-  habitName: {
-    fontFamily: Fonts.medium,
-    fontSize: 15,
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  habitNameSelected: {
-    color: Colors.primary,
-  },
-  habitDescription: {
-    fontFamily: Fonts.regular,
-    fontSize: 12,
-    color: "#888",
-  },
-  habitCheckmark: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  goalSection: {
-    marginBottom: 40,
-  },
-  goalLabel: {
-    fontFamily: Fonts.medium,
-    fontSize: 14,
-    color: "#888",
-    marginBottom: 16,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  goalSelector: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 12,
-  },
-  goalOption: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  goalOptionSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  goalNumber: {
-    fontFamily: Fonts.bold,
-    fontSize: 24,
-    color: Colors.primary,
-  },
-  goalNumberSelected: {
-    color: "#fff",
-  },
-  goalUnit: {
-    fontFamily: Fonts.regular,
-    fontSize: 11,
-    color: "#888",
-    marginTop: 2,
-  },
-  goalUnitSelected: {
-    color: "rgba(255,255,255,0.8)",
-  },
-  goalHint: {
-    fontFamily: Fonts.regular,
-    fontSize: 13,
-    color: "#888",
-    textAlign: "center",
-  },
-  speedSection: {
-    marginBottom: 20,
-  },
-  speedSelector: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 12,
-  },
-  speedOption: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  speedOptionSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  speedText: {
-    fontFamily: Fonts.medium,
-    fontSize: 14,
-    color: Colors.primary,
-  },
-  speedTextSelected: {
-    color: "#fff",
-  },
-  speedHint: {
-    fontFamily: Fonts.regular,
-    fontSize: 13,
-    color: "#888",
-    textAlign: "center",
-  },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    paddingBottom: 36,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  footerButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  errorBanner: {
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  errorText: {
-    fontFamily: Fonts.regular,
-    color: "#FF3B30",
-    fontSize: 14,
-    textAlign: "center",
-  },
-  backButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  continueButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  continueButtonFull: {
-    flex: 1,
-  },
-  continueButtonDisabled: {
-    opacity: 0.4,
-  },
-  continueButtonText: {
-    fontFamily: Fonts.medium,
-    fontSize: 17,
-    color: "#fff",
-  },
-});
+function createStyles(theme: AppTheme) {
+  const { colors, type, space, radius, shadows, fonts } = theme;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    progressRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: space.xl,
+      paddingTop: space.xs,
+      paddingBottom: space.md,
+      gap: space.sm,
+    },
+    progressRowDesktop: {
+      paddingHorizontal: 0,
+      paddingTop: 0,
+      paddingBottom: 0,
+    },
+    progressContainerDesktop: {
+      width: "100%",
+      maxWidth: 560,
+      alignSelf: "center",
+      paddingHorizontal: space.xl,
+      paddingTop: space.lg,
+      paddingBottom: space.md,
+    },
+    progressTrack: {
+      flex: 1,
+      height: 3,
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 2,
+      overflow: "hidden",
+    },
+    progressBar: {
+      height: "100%",
+      backgroundColor: colors.primary,
+      borderRadius: 2,
+    },
+    progressText: {
+      ...type.caption,
+      color: colors.tertiary,
+      minWidth: 56,
+      textAlign: "right",
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: space.xl,
+    },
+    scrollContentDesktop: {
+      paddingHorizontal: 0,
+      alignItems: "center",
+    },
+    stepFrame: {
+      flex: 1,
+      width: "100%",
+    },
+    stepFrameDesktop: {
+      maxWidth: 560,
+      alignSelf: "center",
+      paddingHorizontal: space.xl,
+    },
+    stepContainer: {
+      flex: 1,
+      paddingTop: space.lg,
+      paddingBottom: 120,
+    },
+    welcomeHeader: {
+      paddingTop: space.xl,
+    },
+    welcomeBody: {
+      flex: 1,
+      justifyContent: "center",
+    },
+    stepBody: {
+      flex: 1,
+      justifyContent: "center",
+    },
+    welcomeIconContainer: {
+      alignItems: "center",
+      marginBottom: space.xl,
+    },
+    welcomeEyebrow: {
+      ...type.eyebrow,
+      color: colors.tertiary,
+      textAlign: "center",
+      marginBottom: space.sm,
+    },
+    welcomeTitle: {
+      fontFamily: fonts.display.regular,
+      fontSize: 38,
+      lineHeight: 42,
+      color: colors.primary,
+      textAlign: "center",
+      letterSpacing: -0.6,
+      marginBottom: space.md,
+    },
+    welcomeTitleAccent: {
+      fontFamily: fonts.display.italic,
+      fontStyle: "italic",
+      color: colors.primary,
+    },
+    welcomeSubtitle: {
+      ...type.bodyLarge,
+      color: colors.secondary,
+      textAlign: "center",
+      paddingHorizontal: space.md,
+    },
+    featureList: {
+      gap: space.sm,
+    },
+    featureItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.md,
+      backgroundColor: colors.surface,
+      padding: space.lg,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...shadows.tile.native,
+    },
+    featureIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.bg,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    featureContent: {
+      flex: 1,
+    },
+    featureTitle: {
+      ...type.sectionLabel,
+      color: colors.primary,
+      marginBottom: 2,
+      fontFamily: fonts.body.medium,
+    },
+    featureDescription: {
+      ...type.bodySmall,
+      color: colors.secondary,
+    },
+    stepEyebrow: {
+      ...type.eyebrow,
+      color: colors.tertiary,
+      marginBottom: space.sm,
+    },
+    stepTitle: {
+      fontFamily: fonts.display.italic,
+      fontSize: 32,
+      lineHeight: 36,
+      color: colors.primary,
+      marginBottom: space.sm,
+      letterSpacing: -0.4,
+      fontStyle: "italic",
+    },
+    stepSubtitle: {
+      ...type.body,
+      color: colors.secondary,
+      marginBottom: space.xxl,
+      maxWidth: 380,
+    },
+    inputWrapper: {
+      gap: space.md,
+    },
+    nameInput: {
+      fontFamily: fonts.display.regular,
+      fontSize: 24,
+      lineHeight: 28,
+      color: colors.primary,
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      paddingHorizontal: space.lg,
+      paddingVertical: space.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      letterSpacing: -0.3,
+    },
+    greeting: {
+      fontFamily: fonts.display.regular,
+      fontSize: 22,
+      lineHeight: 28,
+      color: colors.primary,
+      textAlign: "center",
+      marginTop: space.lg,
+      letterSpacing: -0.2,
+    },
+    genreGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.xs + 2,
+      marginBottom: space.lg,
+    },
+    genreChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+      backgroundColor: colors.surface,
+      paddingHorizontal: space.md,
+      paddingVertical: space.sm - 2,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    genreChipSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    genreText: {
+      ...type.bodySmall,
+      fontFamily: fonts.body.medium,
+      color: colors.primary,
+    },
+    genreTextSelected: {
+      color: colors.primaryInverse,
+    },
+    checkmark: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: colors.primaryInverse,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: 2,
+    },
+    selectionCount: {
+      ...type.caption,
+      color: colors.tertiary,
+      textAlign: "center",
+    },
+    habitsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.sm,
+    },
+    habitCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: space.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      position: "relative",
+      ...shadows.tile.native,
+    },
+    habitCardSelected: {
+      borderColor: colors.primary,
+      borderWidth: 1.5,
+    },
+    habitIconContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.bg,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: space.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    habitIconContainerSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    habitName: {
+      ...type.sectionLabel,
+      fontFamily: fonts.body.medium,
+      color: colors.primary,
+      marginBottom: 2,
+    },
+    habitNameSelected: {
+      color: colors.primary,
+    },
+    habitDescription: {
+      ...type.caption,
+      color: colors.secondary,
+    },
+    habitCheckmark: {
+      position: "absolute",
+      top: space.sm,
+      right: space.sm,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    goalSection: {
+      marginBottom: space.xxxl,
+    },
+    goalLabel: {
+      ...type.eyebrow,
+      color: colors.tertiary,
+      marginBottom: space.md,
+    },
+    goalSelector: {
+      flexDirection: "row",
+      gap: space.xs + 2,
+      marginBottom: space.sm,
+    },
+    goalOption: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      paddingVertical: space.md,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    goalOptionSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    goalNumber: {
+      fontFamily: fonts.display.regular,
+      fontSize: 24,
+      lineHeight: 28,
+      color: colors.primary,
+      letterSpacing: -0.4,
+    },
+    goalNumberSelected: {
+      color: colors.primaryInverse,
+    },
+    goalUnit: {
+      ...type.caption,
+      color: colors.tertiary,
+      marginTop: 2,
+    },
+    goalUnitSelected: {
+      color: "rgba(255,255,255,0.78)",
+    },
+    goalHint: {
+      ...type.bodySmall,
+      color: colors.secondary,
+      textAlign: "center",
+    },
+    speedSection: {
+      marginBottom: space.lg,
+    },
+    speedSelector: {
+      flexDirection: "row",
+      gap: space.xs,
+      marginBottom: space.sm,
+    },
+    speedOption: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      paddingVertical: space.sm + 2,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    speedOptionSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    speedText: {
+      ...type.bodySmall,
+      fontFamily: fonts.body.medium,
+      color: colors.primary,
+    },
+    speedTextSelected: {
+      color: colors.primaryInverse,
+    },
+    speedHint: {
+      ...type.bodySmall,
+      color: colors.secondary,
+      textAlign: "center",
+    },
+    footer: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      padding: space.xl,
+      paddingBottom: space.xxl + 8,
+      backgroundColor: colors.bg,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    footerDesktop: {
+      paddingHorizontal: 0,
+      alignItems: "center",
+    },
+    footerInner: {
+      width: "100%",
+      maxWidth: 560,
+      paddingHorizontal: space.xl,
+    },
+    footerButtons: {
+      flexDirection: "row",
+      gap: space.sm,
+    },
+    errorBanner: {
+      backgroundColor: "rgba(214, 70, 58, 0.10)",
+      borderRadius: radius.md,
+      padding: space.sm + 2,
+      marginBottom: space.sm,
+      borderWidth: 1,
+      borderColor: "rgba(214, 70, 58, 0.18)",
+    },
+    errorText: {
+      fontFamily: fonts.body.regular,
+      color: colors.danger,
+      fontSize: 13,
+      textAlign: "center",
+    },
+    backButton: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    continueButton: {
+      flex: 1,
+      height: 52,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      ...shadows.floating.native,
+    },
+    continueButtonDisabled: {
+      opacity: 0.45,
+    },
+    continueButtonText: {
+      fontFamily: fonts.body.medium,
+      fontSize: 16,
+      color: colors.primaryInverse,
+      letterSpacing: 0.2,
+    },
+    accountForm: {
+      gap: space.lg,
+    },
+    accountFieldGroup: {
+      gap: space.xs,
+    },
+    accountLabel: {
+      ...type.eyebrow,
+      color: colors.secondary,
+    },
+    accountInput: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      paddingHorizontal: space.lg,
+      paddingVertical: space.md + 2,
+      fontSize: 16,
+      lineHeight: 22,
+      color: colors.primary,
+      fontFamily: fonts.body.regular,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    accountFinePrint: {
+      ...type.caption,
+      color: colors.tertiary,
+      lineHeight: 18,
+    },
+    signInLink: {
+      marginTop: space.xl,
+      alignSelf: "center",
+      paddingVertical: space.sm,
+    },
+    signInLinkText: {
+      ...type.bodySmall,
+      color: colors.secondary,
+      textAlign: "center",
+    },
+    signInLinkAccent: {
+      fontFamily: fonts.body.medium,
+      color: colors.primary,
+    },
+  });
+}

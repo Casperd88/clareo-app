@@ -7,7 +7,7 @@ import type {
 } from "../types";
 import { onboardingApi } from "../api";
 
-const TOTAL_STEPS = 5;
+const DEFAULT_TOTAL_STEPS = 5;
 
 interface OnboardingSliceState extends OnboardingState {
   isSaving: boolean;
@@ -17,7 +17,7 @@ interface OnboardingSliceState extends OnboardingState {
 
 const initialState: OnboardingSliceState = {
   currentStep: 0,
-  totalSteps: TOTAL_STEPS,
+  totalSteps: DEFAULT_TOTAL_STEPS,
   isComplete: false,
   isSaving: false,
   isLoading: false,
@@ -78,6 +78,13 @@ const onboardingSlice = createSlice({
     goToStep: (state, action: PayloadAction<number>) => {
       if (action.payload >= 0 && action.payload < state.totalSteps) {
         state.currentStep = action.payload;
+      }
+    },
+    setTotalSteps: (state, action: PayloadAction<number>) => {
+      const next = Math.max(1, action.payload);
+      state.totalSteps = next;
+      if (state.currentStep > next - 1) {
+        state.currentStep = next - 1;
       }
     },
     setDisplayName: (state, action: PayloadAction<string>) => {
@@ -164,6 +171,7 @@ export const {
   nextStep,
   previousStep,
   goToStep,
+  setTotalSteps,
   setDisplayName,
   toggleGenre,
   setGenres,

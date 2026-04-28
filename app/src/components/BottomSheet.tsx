@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { X } from "lucide-react-native";
-import { Fonts } from "../constants/typography";
+import { useTheme } from "../theme";
+import type { AppTheme } from "../theme";
 
 interface BottomSheetProps {
   visible: boolean;
@@ -22,6 +23,8 @@ interface BottomSheetProps {
 
 export function BottomSheet({ visible, onClose, title, children }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   return (
     <Modal
@@ -40,7 +43,7 @@ export function BottomSheet({ visible, onClose, title, children }: BottomSheetPr
             <View style={styles.handle} />
             <Text style={styles.title}>{title}</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <X size={24} color="#000" strokeWidth={2} />
+              <X size={22} color={theme.colors.primary} strokeWidth={1.8} />
             </TouchableOpacity>
           </View>
           <View style={styles.content}>{children}</View>
@@ -50,49 +53,54 @@ export function BottomSheet({ visible, onClose, title, children }: BottomSheetPr
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  sheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    minHeight: 200,
-    maxHeight: "85%",
-  },
-  header: {
-    alignItems: "center",
-    paddingTop: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 2,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-    color: "#000",
-  },
-  closeButton: {
-    position: "absolute",
-    right: 16,
-    top: 28,
-    padding: 4,
-  },
-  content: {
-    padding: 20,
-  },
-});
+function createStyles(theme: AppTheme) {
+  const { colors, type, space, radius, shadows, fonts } = theme;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: "flex-end",
+    },
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.scrim,
+    },
+    sheet: {
+      backgroundColor: colors.bgRaised,
+      borderTopLeftRadius: radius.xxl,
+      borderTopRightRadius: radius.xxl,
+      minHeight: 200,
+      maxHeight: "85%",
+      ...shadows.floating.native,
+    },
+    header: {
+      alignItems: "center",
+      paddingTop: space.sm,
+      paddingHorizontal: space.lg,
+      paddingBottom: space.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    handle: {
+      width: 40,
+      height: 4,
+      backgroundColor: colors.border,
+      borderRadius: 2,
+      marginBottom: space.md,
+    },
+    title: {
+      ...type.sectionLabel,
+      fontFamily: fonts.body.medium,
+      fontSize: 16,
+      color: colors.primary,
+    },
+    closeButton: {
+      position: "absolute",
+      right: space.md,
+      top: space.lg,
+      padding: 4,
+    },
+    content: {
+      padding: space.lg,
+    },
+  });
+}

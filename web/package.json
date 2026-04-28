@@ -13,6 +13,7 @@
     "pages:deploy": "npm run build && wrangler pages deploy dist"
   },
   "dependencies": {
+    "@clareo/design-system": "*",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.8.0",
     "posthog-js": "^1.369.0",

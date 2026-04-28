@@ -1,0 +1,16 @@
+{
+  "name": "clareo-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Clareo workspace root: shared design system, marketing site, and product app.",
+  "workspaces": [
+    "packages/*",
+    "web",
+    "app"
+  ],
+  "scripts": {
+    "tokens:build": "npm --workspace @clareo/design-system run build:css",
+    "web": "npm --workspace clareo-react run dev",
+    "app": "npm --workspace audiobook-player-app run start"
+  }
+}

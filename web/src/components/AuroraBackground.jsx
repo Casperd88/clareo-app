@@ -278,11 +278,31 @@ export default function AuroraBackground() {
     const uTime = gl.getUniformLocation(prog, 'u_time');
     const uDark = gl.getUniformLocation(prog, 'u_dark');
 
+    let lockedLiteHeight = window.innerHeight;
+    let lastCssWidth = 0;
+
     function resize() {
       const cap = isLite() ? 1 : 2;
       const dpr = Math.min(window.devicePixelRatio || 1, cap);
-      const w = Math.max(1, Math.floor(window.innerWidth * dpr));
-      const h = Math.max(1, Math.floor(window.innerHeight * dpr));
+      const cssWidth = window.innerWidth;
+      const cssHeight = window.innerHeight;
+
+      // iOS Safari emits frequent resize events while the browser chrome
+      // collapses/expands during scroll. Keeping a monotonic mobile height
+      // prevents framebuffer realloc churn that shows up as aurora flashing.
+      if (isLite()) {
+        if (Math.abs(cssWidth - lastCssWidth) > 80) {
+          lockedLiteHeight = cssHeight;
+        } else {
+          lockedLiteHeight = Math.max(lockedLiteHeight, cssHeight);
+        }
+      } else {
+        lockedLiteHeight = cssHeight;
+      }
+      lastCssWidth = cssWidth;
+
+      const w = Math.max(1, Math.floor(cssWidth * dpr));
+      const h = Math.max(1, Math.floor(lockedLiteHeight * dpr));
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
